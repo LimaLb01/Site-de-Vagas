@@ -1,0 +1,71 @@
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --text: #14181f;
+  --text-dim: #5b6472;
+  --border: #e4e7ec;
+  --brand: #1a7f5a;
+  --brand-strong: #0f5f42;
+  --accent: #12855f;
+  --nova: #d92d20;
+  --ring: rgba(26, 127, 90, 0.35);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 16px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 8px 30px rgba(16, 24, 40, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116;
+    --surface: #171b22;
+    --surface-2: #1f242d;
+    --text: #e8eaed;
+    --text-dim: #9aa4b2;
+    --border: #2a303a;
+    --brand: #2ecc8f;
+    --brand-strong: #24a876;
+    --accent: #2ecc8f;
+    --nova: #ff6b5e;
+    --ring: rgba(46, 204, 143, 0.4);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 10px 34px rgba(0, 0, 0, 0.5);
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+button,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
