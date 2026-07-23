@@ -42,7 +42,14 @@ function fmtHora(iso: string): string {
   })
 }
 
-type Ordem = 'recentes' | 'antigas' | 'az'
+function salarioNum(v: Vaga): number {
+  if (!v.salario) return -1
+  const m = String(v.salario).match(/[\d.]+(?:,\d{2})?/)
+  if (!m) return -1
+  return parseFloat(m[0].replace(/\./g, '').replace(',', '.')) || -1
+}
+
+type Ordem = 'recentes' | 'antigas' | 'az' | 'salario'
 
 export default function VagasBoard({
   vagas,
@@ -56,6 +63,7 @@ export default function VagasBoard({
   const [termo, setTermo] = useState<string | null>(null)
   const [nivel, setNivel] = useState<Nivel | null>(null)
   const [soNovas, setSoNovas] = useState(false)
+  const [soComSalario, setSoComSalario] = useState(false)
   const [ocultarCand, setOcultarCand] = useState(false)
   const [ordem, setOrdem] = useState<Ordem>('recentes')
   const [candidatadas, setCandidatadas] = useState<Set<string>>(new Set())
@@ -106,6 +114,7 @@ export default function VagasBoard({
       if (termo && v.termo_busca !== termo) return false
       if (termo === 'analista' && nivel && nivelDe(v) !== nivel) return false
       if (soNovas && !ehNova(v)) return false
+      if (soComSalario && !v.salario) return false
       if (ocultarCand && candidatadas.has(v.url)) return false
       if (q) {
         const alvo = `${v.titulo} ${v.empresa ?? ''} ${v.cidade ?? ''}`.toLowerCase()
@@ -115,12 +124,13 @@ export default function VagasBoard({
     })
     r = [...r].sort((a, b) => {
       if (ordem === 'az') return a.titulo.localeCompare(b.titulo, 'pt-BR')
+      if (ordem === 'salario') return salarioNum(b) - salarioNum(a)
       const ta = new Date(a.publicada_em ?? a.capturada_em).getTime()
       const tb = new Date(b.publicada_em ?? b.capturada_em).getTime()
       return ordem === 'recentes' ? tb - ta : ta - tb
     })
     return r
-  }, [vagas, busca, fonte, termo, nivel, soNovas, ocultarCand, candidatadas, ordem])
+  }, [vagas, busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, candidatadas, ordem])
 
   const limpar = () => {
     setBusca('')
@@ -128,9 +138,10 @@ export default function VagasBoard({
     setTermo(null)
     setNivel(null)
     setSoNovas(false)
+    setSoComSalario(false)
     setOcultarCand(false)
   }
-  const temFiltro = busca || fonte || termo || nivel || soNovas || ocultarCand
+  const temFiltro = busca || fonte || termo || nivel || soNovas || soComSalario || ocultarCand
 
   return (
     <div className={styles.page}>
@@ -251,6 +262,14 @@ export default function VagasBoard({
               <label className={styles.toggle}>
                 <input
                   type="checkbox"
+                  checked={soComSalario}
+                  onChange={(e) => setSoComSalario(e.target.checked)}
+                />
+                Só com salário
+              </label>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
                   checked={ocultarCand}
                   onChange={(e) => setOcultarCand(e.target.checked)}
                 />
@@ -264,6 +283,7 @@ export default function VagasBoard({
               >
                 <option value="recentes">Mais recentes</option>
                 <option value="antigas">Mais antigas</option>
+                <option value="salario">Maior salário</option>
                 <option value="az">Título A–Z</option>
               </select>
             </div>
