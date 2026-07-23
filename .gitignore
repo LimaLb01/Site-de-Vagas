@@ -21,3 +21,6 @@ next-env.d.ts
 .env*.local
 .env
 npm-debug.log*
+
+.vercel
+.env*

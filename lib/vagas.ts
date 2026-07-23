@@ -10,6 +10,7 @@ export interface Vaga {
   empresa: string | null
   cidade: string | null
   tipo: string | null
+  salario: string | null
   url: string
   termo_busca: string | null
   publicada_em: string | null
@@ -26,6 +27,7 @@ export const FONTES: Record<string, string> = {
   gupy: 'Gupy',
   linkedin: 'LinkedIn',
   'vagas.com': 'Vagas.com',
+  jobfy: 'Jobfy',
   indeed: 'Indeed',
 }
 

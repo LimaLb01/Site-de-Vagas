@@ -248,6 +248,25 @@
   color: var(--accent);
   border-color: transparent;
 }
+.f_jobfy {
+  background: rgba(234, 88, 12, 0.14);
+  color: #ea580c;
+  border-color: transparent;
+}
+.headTags {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.candTag {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: rgba(4, 120, 87, 0.14);
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+}
 .nova {
   font-size: 0.66rem;
   font-weight: 800;
@@ -280,15 +299,43 @@
   font-size: 0.82rem;
   color: var(--text-dim);
 }
-.apply {
+.salario {
+  font-weight: 700;
+  color: var(--accent);
+}
+.cardFoot {
   margin-top: auto;
   padding-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.apply {
   font-size: 0.88rem;
   font-weight: 700;
   color: var(--brand);
 }
 .apply:hover {
   color: var(--brand-strong);
+}
+.candCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.candCheck input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: var(--accent);
+}
+.cardAplicada {
+  border-color: var(--accent);
+  background: linear-gradient(0deg, rgba(4, 120, 87, 0.05), rgba(4, 120, 87, 0.05)), var(--surface);
 }
 
 /* ---------- Empty / Footer ---------- */
