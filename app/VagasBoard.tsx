@@ -6,10 +6,7 @@ import styles from './page.module.css'
 
 const DIA = 24 * 60 * 60 * 1000
 const LS_CAND = 'vagas_candidatadas_v1'
-
-function ehNova(v: Vaga): boolean {
-  return Date.now() - new Date(v.capturada_em).getTime() < DIA
-}
+const PAGINA = 30
 
 type Nivel = 'jr' | 'pl' | 'sr' | 'sem'
 const NIVEL_NOME: Record<Nivel, string> = {
@@ -19,7 +16,74 @@ const NIVEL_NOME: Record<Nivel, string> = {
   sem: 'Sem nível',
 }
 
-function nivelDe(v: Vaga): Nivel {
+interface Fonte {
+  fonte: string
+  url: string
+}
+interface VagaMerged {
+  key: string
+  titulo: string
+  empresa: string | null
+  cidade: string | null
+  tipo: string | null
+  salario: string | null
+  termo_busca: string | null
+  publicada_em: string | null
+  capturada_em: string
+  fontes: Fonte[]
+}
+
+function norm(s: string | null): string {
+  return (s ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+// junta a mesma vaga vinda de fontes diferentes num card só
+function mesclar(vagas: Vaga[]): VagaMerged[] {
+  const mapa = new Map<string, VagaMerged>()
+  for (const v of vagas) {
+    const key = `${norm(v.titulo)}|${norm(v.empresa)}`
+    const ex = mapa.get(key)
+    if (!ex) {
+      mapa.set(key, {
+        key,
+        titulo: v.titulo,
+        empresa: v.empresa,
+        cidade: v.cidade,
+        tipo: v.tipo,
+        salario: v.salario,
+        termo_busca: v.termo_busca,
+        publicada_em: v.publicada_em,
+        capturada_em: v.capturada_em,
+        fontes: [{ fonte: v.fonte, url: v.url }],
+      })
+    } else {
+      if (!ex.fontes.some((f) => f.fonte === v.fonte)) ex.fontes.push({ fonte: v.fonte, url: v.url })
+      if (!ex.salario && v.salario) ex.salario = v.salario
+      if (!ex.tipo && v.tipo) ex.tipo = v.tipo
+      if (v.capturada_em > ex.capturada_em) ex.capturada_em = v.capturada_em
+      const pa = v.publicada_em ?? ''
+      const pe = ex.publicada_em ?? ''
+      if (pa > pe) ex.publicada_em = v.publicada_em
+    }
+  }
+  // ordena os selos pela ordem canônica das FONTES
+  const ordemFonte = Object.keys(FONTES)
+  for (const m of mapa.values()) {
+    m.fontes.sort((a, b) => ordemFonte.indexOf(a.fonte) - ordemFonte.indexOf(b.fonte))
+  }
+  return [...mapa.values()]
+}
+
+function ehNova(v: VagaMerged): boolean {
+  return Date.now() - new Date(v.capturada_em).getTime() < DIA
+}
+
+function nivelDe(v: VagaMerged): Nivel {
   const t = v.titulo.toLowerCase()
   if (/\bs[êe]nior\b|\bsr\b/.test(t)) return 'sr'
   if (/\bpleno\b|\bpl\b/.test(t)) return 'pl'
@@ -42,7 +106,7 @@ function fmtHora(iso: string): string {
   })
 }
 
-function salarioNum(v: Vaga): number {
+function salarioNum(v: VagaMerged): number {
   if (!v.salario) return -1
   const m = String(v.salario).match(/[\d.]+(?:,\d{2})?/)
   if (!m) return -1
@@ -67,6 +131,9 @@ export default function VagasBoard({
   const [ocultarCand, setOcultarCand] = useState(false)
   const [ordem, setOrdem] = useState<Ordem>('recentes')
   const [candidatadas, setCandidatadas] = useState<Set<string>>(new Set())
+  const [visiveis, setVisiveis] = useState(PAGINA)
+
+  const itens = useMemo(() => mesclar(vagas), [vagas])
 
   // carrega "me candidatei" do localStorage (por navegador)
   useEffect(() => {
@@ -76,11 +143,11 @@ export default function VagasBoard({
     } catch {}
   }, [])
 
-  const toggleCand = (url: string) => {
+  const toggleCand = (key: string) => {
     setCandidatadas((prev) => {
       const n = new Set(prev)
-      if (n.has(url)) n.delete(url)
-      else n.add(url)
+      if (n.has(key)) n.delete(key)
+      else n.add(key)
       try {
         localStorage.setItem(LS_CAND, JSON.stringify([...n]))
       } catch {}
@@ -88,19 +155,19 @@ export default function VagasBoard({
     })
   }
 
-  const novas24h = useMemo(() => vagas.filter(ehNova).length, [vagas])
+  const novas24h = useMemo(() => itens.filter(ehNova).length, [itens])
 
   const contagemFonte = useMemo(() => {
     const c: Record<string, number> = {}
-    for (const v of vagas) c[v.fonte] = (c[v.fonte] ?? 0) + 1
+    for (const v of itens) for (const f of v.fontes) c[f.fonte] = (c[f.fonte] ?? 0) + 1
     return c
-  }, [vagas])
+  }, [itens])
 
   const contagemNivel = useMemo(() => {
     const c: Record<Nivel, number> = { jr: 0, pl: 0, sr: 0, sem: 0 }
-    for (const v of vagas) if (v.termo_busca === 'analista') c[nivelDe(v)]++
+    for (const v of itens) if (v.termo_busca === 'analista') c[nivelDe(v)]++
     return c
-  }, [vagas])
+  }, [itens])
 
   const trocarCargo = (novo: string | null) => {
     setTermo(novo)
@@ -109,13 +176,13 @@ export default function VagasBoard({
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
-    let r = vagas.filter((v) => {
-      if (fonte && v.fonte !== fonte) return false
+    let r = itens.filter((v) => {
+      if (fonte && !v.fontes.some((f) => f.fonte === fonte)) return false
       if (termo && v.termo_busca !== termo) return false
       if (termo === 'analista' && nivel && nivelDe(v) !== nivel) return false
       if (soNovas && !ehNova(v)) return false
       if (soComSalario && !v.salario) return false
-      if (ocultarCand && candidatadas.has(v.url)) return false
+      if (ocultarCand && candidatadas.has(v.key)) return false
       if (q) {
         const alvo = `${v.titulo} ${v.empresa ?? ''} ${v.cidade ?? ''}`.toLowerCase()
         if (!alvo.includes(q)) return false
@@ -130,7 +197,14 @@ export default function VagasBoard({
       return ordem === 'recentes' ? tb - ta : ta - tb
     })
     return r
-  }, [vagas, busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, candidatadas, ordem])
+  }, [itens, busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, candidatadas, ordem])
+
+  // reseta a paginação quando os filtros mudam
+  useEffect(() => {
+    setVisiveis(PAGINA)
+  }, [busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, ordem])
+
+  const mostradas = filtradas.slice(0, visiveis)
 
   const limpar = () => {
     setBusca('')
@@ -155,7 +229,7 @@ export default function VagasBoard({
           </p>
           <div className={styles.stats}>
             <div className={styles.stat}>
-              <strong>{vagas.length}</strong>
+              <strong>{itens.length}</strong>
               <span>vagas ativas</span>
             </div>
             <div className={styles.stat}>
@@ -291,7 +365,7 @@ export default function VagasBoard({
 
           <div className={styles.resultBar}>
             <span>
-              {filtradas.length} de {vagas.length} vagas
+              {filtradas.length} de {itens.length} vagas
             </span>
             {temFiltro && (
               <button className={styles.clear} onClick={limpar}>
@@ -311,62 +385,84 @@ export default function VagasBoard({
             )}
           </div>
         ) : (
-          <ul className={styles.grid}>
-            {filtradas.map((v) => {
-              const aplicada = candidatadas.has(v.url)
-              return (
-                <li
-                  key={v.id}
-                  className={aplicada ? `${styles.card} ${styles.cardAplicada}` : styles.card}
-                >
-                  <div className={styles.cardHead}>
-                    <span
-                      className={`${styles.badge} ${styles['f_' + v.fonte.replace('.', '_')]}`}
-                    >
-                      {FONTES[v.fonte] ?? v.fonte}
-                    </span>
-                    <span className={styles.headTags}>
-                      {aplicada && <span className={styles.candTag}>CANDIDATADA</span>}
-                      {ehNova(v) && <span className={styles.nova}>NOVA</span>}
-                    </span>
-                  </div>
-                  <a
-                    className={styles.cardTitle}
-                    href={v.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+          <>
+            <ul className={styles.grid}>
+              {mostradas.map((v) => {
+                const aplicada = candidatadas.has(v.key)
+                const principal = v.fontes[0]
+                return (
+                  <li
+                    key={v.key}
+                    className={aplicada ? `${styles.card} ${styles.cardAplicada}` : styles.card}
                   >
-                    {v.titulo}
-                  </a>
-                  {v.empresa && <p className={styles.empresa}>{v.empresa}</p>}
-                  <div className={styles.meta}>
-                    {v.cidade && <span>📍 {v.cidade}</span>}
-                    {v.salario && <span className={styles.salario}>💰 {v.salario}</span>}
-                    {v.tipo && <span>{v.tipo}</span>}
-                    {fmtData(v.publicada_em) && <span>{fmtData(v.publicada_em)}</span>}
-                  </div>
-                  <div className={styles.cardFoot}>
+                    <div className={styles.cardHead}>
+                      <span className={styles.badges}>
+                        {v.fontes.map((f) => (
+                          <a
+                            key={f.fonte}
+                            className={`${styles.badge} ${styles['f_' + f.fonte.replace('.', '_')]}`}
+                            href={f.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`Ver no ${FONTES[f.fonte] ?? f.fonte}`}
+                          >
+                            {FONTES[f.fonte] ?? f.fonte}
+                          </a>
+                        ))}
+                      </span>
+                      <span className={styles.headTags}>
+                        {aplicada && <span className={styles.candTag}>CANDIDATADA</span>}
+                        {ehNova(v) && <span className={styles.nova}>NOVA</span>}
+                      </span>
+                    </div>
                     <a
-                      className={styles.apply}
-                      href={v.url}
+                      className={styles.cardTitle}
+                      href={principal.url}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Ver vaga →
+                      {v.titulo}
                     </a>
-                    <label className={styles.candCheck}>
-                      <input
-                        type="checkbox"
-                        checked={aplicada}
-                        onChange={() => toggleCand(v.url)}
-                      />
-                      Me candidatei
-                    </label>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+                    {v.empresa && <p className={styles.empresa}>{v.empresa}</p>}
+                    <div className={styles.meta}>
+                      {v.cidade && <span>📍 {v.cidade}</span>}
+                      {v.salario && <span className={styles.salario}>💰 {v.salario}</span>}
+                      {v.tipo && <span>{v.tipo}</span>}
+                      {fmtData(v.publicada_em) && <span>{fmtData(v.publicada_em)}</span>}
+                    </div>
+                    <div className={styles.cardFoot}>
+                      <a
+                        className={styles.apply}
+                        href={principal.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Ver vaga →
+                      </a>
+                      <label className={styles.candCheck}>
+                        <input
+                          type="checkbox"
+                          checked={aplicada}
+                          onChange={() => toggleCand(v.key)}
+                        />
+                        Me candidatei
+                      </label>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            {visiveis < filtradas.length && (
+              <div className={styles.loadMoreWrap}>
+                <button
+                  className={styles.loadMore}
+                  onClick={() => setVisiveis((n) => n + PAGINA)}
+                >
+                  Carregar mais ({filtradas.length - visiveis} restantes)
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 

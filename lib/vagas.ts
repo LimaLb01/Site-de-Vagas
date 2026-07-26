@@ -46,7 +46,7 @@ async function supabaseGet<T>(path: string): Promise<T[]> {
 
 export function getVagas() {
   return supabaseGet<Vaga>(
-    'vagas?select=*&order=capturada_em.desc,publicada_em.desc.nullslast&limit=500',
+    'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=500',
   )
 }
 

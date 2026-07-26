@@ -219,6 +219,11 @@
   justify-content: space-between;
   margin-bottom: 0.55rem;
 }
+.badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
 .badge {
   font-size: 0.72rem;
   font-weight: 700;
@@ -227,6 +232,12 @@
   background: var(--surface-2);
   color: var(--text-dim);
   border: 1px solid var(--border);
+  text-decoration: none;
+  transition: filter 0.15s;
+}
+a.badge:hover {
+  filter: brightness(0.92);
+  text-decoration: none;
 }
 .f_gupy {
   background: rgba(99, 102, 241, 0.14);
@@ -336,6 +347,28 @@
 .cardAplicada {
   border-color: var(--accent);
   background: linear-gradient(0deg, rgba(4, 120, 87, 0.05), rgba(4, 120, 87, 0.05)), var(--surface);
+}
+
+.loadMoreWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+.loadMore {
+  padding: 0.7rem 1.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background 0.15s, border-color 0.15s;
+}
+.loadMore:hover {
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 /* ---------- Empty / Footer ---------- */
