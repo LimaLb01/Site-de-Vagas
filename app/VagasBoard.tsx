@@ -239,7 +239,7 @@ export default function VagasBoard({
             {ultima && (
               <div className={styles.stat}>
                 <strong>{fmtHora(ultima.executada_em)}</strong>
-                <span>última atualização</span>
+                <span>{fmtData(ultima.executada_em)} · última atualização</span>
               </div>
             )}
           </div>
