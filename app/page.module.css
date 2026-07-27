@@ -405,12 +405,88 @@ a.badge:hover {
   color: var(--text-dim);
 }
 
-@media (max-width: 600px) {
+/* indicador "ao vivo" */
+.pulse,
+.pulseOn {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  background: rgba(255, 255, 255, 0.45);
+}
+.pulseOn {
+  background: #fff;
+  animation: piscar 1s ease-in-out infinite;
+}
+@keyframes piscar {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulseOn { animation: none; }
+}
+
+@media (max-width: 700px) {
   .hero {
     padding: 2.2rem 1.1rem 1.8rem;
   }
+  .main {
+    padding: 1rem 0.9rem 2.5rem;
+  }
+  .stats {
+    gap: 1.5rem;
+  }
+  .stat strong {
+    font-size: 1.35rem;
+  }
+  /* chips deslizam na horizontal em vez de empilhar */
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chips::-webkit-scrollbar {
+    display: none;
+  }
+  .chip,
+  .chipOn {
+    flex: 0 0 auto;
+  }
   .rightControls {
-    justify-content: space-between;
     width: 100%;
+    gap: 0.5rem 0.9rem;
+  }
+  .select {
+    margin-left: auto;
+  }
+  .resultBar {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .barActions {
+    gap: 0.9rem;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .card {
+    padding: 0.9rem 1rem 1rem;
+  }
+  .cardFoot {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  /* alvos de toque maiores */
+  .toggle input,
+  .candCheck input {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+  .card:hover {
+    transform: none;
   }
 }

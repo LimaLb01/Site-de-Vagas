@@ -1,7 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { FONTES, type Vaga, type Execucao } from '@/lib/vagas'
+import {
+  FONTES,
+  PATH_VAGAS,
+  PATH_EXECUCAO,
+  fetchAoVivo,
+  type Vaga,
+  type Execucao,
+} from '@/lib/vagas'
 import styles from './page.module.css'
 
 const LS_CAND = 'vagas_candidatadas_v1'
@@ -111,13 +118,18 @@ function salarioNum(v: VagaMerged): number {
 
 type Ordem = 'recentes' | 'antigas' | 'az' | 'salario'
 
+const INTERVALO_MS = 3 * 60 * 1000
+
 export default function VagasBoard({
-  vagas,
-  ultima,
+  vagas: vagasIniciais,
+  ultima: ultimaInicial,
 }: {
   vagas: Vaga[]
   ultima: Execucao | null
 }) {
+  const [vagas, setVagas] = useState<Vaga[]>(vagasIniciais)
+  const [ultima, setUltima] = useState<Execucao | null>(ultimaInicial)
+  const [atualizando, setAtualizando] = useState(false)
   const [busca, setBusca] = useState('')
   const [fonte, setFonte] = useState<string | null>(null)
   const [termo, setTermo] = useState<string | null>(null)
@@ -131,6 +143,35 @@ export default function VagasBoard({
   const [visiveis, setVisiveis] = useState(PAGINA)
 
   const itens = useMemo(() => mesclar(vagas), [vagas])
+
+  // mantém a lista fresca sozinha: a cada 3 min e ao voltar para a aba
+  useEffect(() => {
+    let vivo = true
+    const atualiza = async () => {
+      if (document.hidden) return
+      setAtualizando(true)
+      const [novas, exec] = await Promise.all([
+        fetchAoVivo<Vaga>(PATH_VAGAS),
+        fetchAoVivo<Execucao>(PATH_EXECUCAO),
+      ])
+      if (!vivo) return
+      if (novas) setVagas(novas)
+      if (exec && exec[0]) setUltima(exec[0])
+      setAtualizando(false)
+    }
+    const id = setInterval(atualiza, INTERVALO_MS)
+    const aoVoltar = () => {
+      if (!document.hidden) atualiza()
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+    window.addEventListener('focus', aoVoltar)
+    return () => {
+      vivo = false
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', aoVoltar)
+      window.removeEventListener('focus', aoVoltar)
+    }
+  }, [])
 
   // carrega "me candidatei" do localStorage (por navegador)
   useEffect(() => {
@@ -278,7 +319,10 @@ export default function VagasBoard({
             </div>
             {ultima && (
               <div className={styles.stat}>
-                <strong>{fmtHora(ultima.executada_em)}</strong>
+                <strong>
+                  {fmtHora(ultima.executada_em)}
+                  <span className={atualizando ? styles.pulseOn : styles.pulse} aria-hidden />
+                </strong>
                 <span>{fmtData(ultima.executada_em)} · última atualização</span>
               </div>
             )}

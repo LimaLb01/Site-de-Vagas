@@ -55,3 +55,22 @@ export function getUltimaExecucao() {
     'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1',
   )
 }
+
+export const PATH_VAGAS =
+  'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=500'
+export const PATH_EXECUCAO =
+  'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1'
+
+// usado no navegador para atualizar sem recarregar a página (sempre dado fresco)
+export async function fetchAoVivo<T>(path: string): Promise<T[] | null> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    return (await res.json()) as T[]
+  } catch {
+    return null
+  }
+}
