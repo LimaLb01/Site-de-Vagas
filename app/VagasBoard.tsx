@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { FONTES, type Vaga, type Execucao } from '@/lib/vagas'
 import styles from './page.module.css'
 
-const DIA = 24 * 60 * 60 * 1000
 const LS_CAND = 'vagas_candidatadas_v1'
+const LS_VISTAS = 'vagas_vistas_v1'
 const PAGINA = 30
 
 type Nivel = 'jr' | 'pl' | 'sr' | 'sem'
@@ -79,10 +79,6 @@ function mesclar(vagas: Vaga[]): VagaMerged[] {
   return [...mapa.values()]
 }
 
-function ehNova(v: VagaMerged): boolean {
-  return Date.now() - new Date(v.capturada_em).getTime() < DIA
-}
-
 function nivelDe(v: VagaMerged): Nivel {
   const t = v.titulo.toLowerCase()
   if (/\bs[êe]nior\b|\bsr\b/.test(t)) return 'sr'
@@ -131,6 +127,7 @@ export default function VagasBoard({
   const [ocultarCand, setOcultarCand] = useState(false)
   const [ordem, setOrdem] = useState<Ordem>('recentes')
   const [candidatadas, setCandidatadas] = useState<Set<string>>(new Set())
+  const [vistas, setVistas] = useState<Set<string> | null>(null)
   const [visiveis, setVisiveis] = useState(PAGINA)
 
   const itens = useMemo(() => mesclar(vagas), [vagas])
@@ -142,6 +139,45 @@ export default function VagasBoard({
       if (raw) setCandidatadas(new Set(JSON.parse(raw) as string[]))
     } catch {}
   }, [])
+
+  // carrega "já vistas". Primeira visita: marca tudo como visto (baseline),
+  // assim só o que aparecer depois é destacado como novo pra você.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_VISTAS)
+      if (raw) {
+        setVistas(new Set(JSON.parse(raw) as string[]))
+      } else {
+        const todas = itens.map((i) => i.key)
+        localStorage.setItem(LS_VISTAS, JSON.stringify(todas))
+        setVistas(new Set(todas))
+      }
+    } catch {
+      setVistas(new Set())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const gravaVistas = (s: Set<string>) => {
+    setVistas(s)
+    try {
+      localStorage.setItem(LS_VISTAS, JSON.stringify([...s]))
+    } catch {}
+  }
+
+  const marcarVista = (key: string) => {
+    if (!vistas || vistas.has(key)) return
+    const n = new Set(vistas)
+    n.add(key)
+    gravaVistas(n)
+  }
+
+  const marcarTodasVistas = () => {
+    gravaVistas(new Set(itens.map((i) => i.key)))
+  }
+
+  // antes de carregar o localStorage, não marca nada como novo (evita piscar)
+  const naoVista = (v: VagaMerged) => (vistas ? !vistas.has(v.key) : false)
 
   const toggleCand = (key: string) => {
     setCandidatadas((prev) => {
@@ -155,7 +191,10 @@ export default function VagasBoard({
     })
   }
 
-  const novas24h = useMemo(() => itens.filter(ehNova).length, [itens])
+  const naoVistasCount = useMemo(
+    () => (vistas ? itens.filter((i) => !vistas.has(i.key)).length : 0),
+    [itens, vistas],
+  )
 
   const contagemFonte = useMemo(() => {
     const c: Record<string, number> = {}
@@ -180,7 +219,7 @@ export default function VagasBoard({
       if (fonte && !v.fontes.some((f) => f.fonte === fonte)) return false
       if (termo && v.termo_busca !== termo) return false
       if (termo === 'analista' && nivel && nivelDe(v) !== nivel) return false
-      if (soNovas && !ehNova(v)) return false
+      if (soNovas && !naoVista(v)) return false
       if (soComSalario && !v.salario) return false
       if (ocultarCand && candidatadas.has(v.key)) return false
       if (q) {
@@ -197,7 +236,8 @@ export default function VagasBoard({
       return ordem === 'recentes' ? tb - ta : ta - tb
     })
     return r
-  }, [itens, busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, candidatadas, ordem])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itens, busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, candidatadas, vistas, ordem])
 
   // reseta a paginação quando os filtros mudam
   useEffect(() => {
@@ -233,8 +273,8 @@ export default function VagasBoard({
               <span>vagas ativas</span>
             </div>
             <div className={styles.stat}>
-              <strong>{novas24h}</strong>
-              <span>novas em 24h</span>
+              <strong>{naoVistasCount}</strong>
+              <span>ainda não vistas</span>
             </div>
             {ultima && (
               <div className={styles.stat}>
@@ -331,7 +371,7 @@ export default function VagasBoard({
                   checked={soNovas}
                   onChange={(e) => setSoNovas(e.target.checked)}
                 />
-                Só novas (24h)
+                Só não vistas
               </label>
               <label className={styles.toggle}>
                 <input
@@ -366,12 +406,22 @@ export default function VagasBoard({
           <div className={styles.resultBar}>
             <span>
               {filtradas.length} de {itens.length} vagas
+              {naoVistasCount > 0 && (
+                <span className={styles.naoVistasInfo}> · {naoVistasCount} não vistas</span>
+              )}
             </span>
-            {temFiltro && (
-              <button className={styles.clear} onClick={limpar}>
-                Limpar filtros
-              </button>
-            )}
+            <span className={styles.barActions}>
+              {naoVistasCount > 0 && (
+                <button className={styles.clear} onClick={marcarTodasVistas}>
+                  Marcar todas como vistas
+                </button>
+              )}
+              {temFiltro && (
+                <button className={styles.clear} onClick={limpar}>
+                  Limpar filtros
+                </button>
+              )}
+            </span>
           </div>
         </div>
 
@@ -389,12 +439,13 @@ export default function VagasBoard({
             <ul className={styles.grid}>
               {mostradas.map((v) => {
                 const aplicada = candidatadas.has(v.key)
+                const nova = naoVista(v)
                 const principal = v.fontes[0]
+                const cls = [styles.card, aplicada && styles.cardAplicada, nova && styles.cardNova]
+                  .filter(Boolean)
+                  .join(' ')
                 return (
-                  <li
-                    key={v.key}
-                    className={aplicada ? `${styles.card} ${styles.cardAplicada}` : styles.card}
-                  >
+                  <li key={v.key} className={cls}>
                     <div className={styles.cardHead}>
                       <span className={styles.badges}>
                         {v.fontes.map((f) => (
@@ -412,7 +463,7 @@ export default function VagasBoard({
                       </span>
                       <span className={styles.headTags}>
                         {aplicada && <span className={styles.candTag}>CANDIDATADA</span>}
-                        {ehNova(v) && <span className={styles.nova}>NOVA</span>}
+                        {nova && <span className={styles.nova}>NOVA PRA VOCÊ</span>}
                       </span>
                     </div>
                     <a
@@ -420,6 +471,7 @@ export default function VagasBoard({
                       href={principal.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => marcarVista(v.key)}
                     >
                       {v.titulo}
                     </a>
@@ -436,6 +488,7 @@ export default function VagasBoard({
                         href={principal.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => marcarVista(v.key)}
                       >
                         Ver vaga →
                       </a>
