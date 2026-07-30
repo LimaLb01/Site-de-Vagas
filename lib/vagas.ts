@@ -46,7 +46,7 @@ async function supabaseGet<T>(path: string): Promise<T[]> {
 
 export function getVagas() {
   return supabaseGet<Vaga>(
-    'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=500',
+    'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=1000',
   )
 }
 
@@ -57,7 +57,7 @@ export function getUltimaExecucao() {
 }
 
 export const PATH_VAGAS =
-  'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=500'
+  'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=1000'
 export const PATH_EXECUCAO =
   'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1'
 

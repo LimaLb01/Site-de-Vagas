@@ -186,8 +186,18 @@ export default function VagasBoard({
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_VISTAS)
-      if (raw) {
-        setVistas(new Set(JSON.parse(raw) as string[]))
+      const salvas = raw ? (JSON.parse(raw) as string[]) : null
+      // lista vazia (falha de rede): não mexe no que já está salvo
+      if (itens.length === 0) {
+        setVistas(new Set(salvas ?? []))
+        return
+      }
+      if (salvas) {
+        // descarta chaves de vagas que já saíram do ar (evita crescer sem limite)
+        const atuais = new Set(itens.map((i) => i.key))
+        const podadas = salvas.filter((k) => atuais.has(k))
+        localStorage.setItem(LS_VISTAS, JSON.stringify(podadas))
+        setVistas(new Set(podadas))
       } else {
         const todas = itens.map((i) => i.key)
         localStorage.setItem(LS_VISTAS, JSON.stringify(todas))
@@ -500,6 +510,7 @@ export default function VagasBoard({
                             target="_blank"
                             rel="noopener noreferrer"
                             title={`Ver no ${FONTES[f.fonte] ?? f.fonte}`}
+                            onClick={() => marcarVista(v.key)}
                           >
                             {FONTES[f.fonte] ?? f.fonte}
                           </a>
