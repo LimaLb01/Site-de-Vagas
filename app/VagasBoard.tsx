@@ -120,6 +120,35 @@ type Ordem = 'recentes' | 'antigas' | 'az' | 'salario'
 
 const INTERVALO_MS = 3 * 60 * 1000
 
+/* ícones inline: sem fonte de ícones externa, sem requisição extra */
+const svg = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'currentColor' } as const
+
+const IconPin = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
+  </svg>
+)
+const IconMoney = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm9 3.5A2.5 2.5 0 1 0 12 14.5a2.5 2.5 0 0 0 0-5z" />
+  </svg>
+)
+const IconWork = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M9 4h6a2 2 0 0 1 2 2v1h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3V6a2 2 0 0 1 2-2zm0 3h6V6H9v1z" />
+  </svg>
+)
+const IconClock = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.6V6h-2v7.4l5 3 1-1.7-4-2.1z" />
+  </svg>
+)
+const IconSearch = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z" />
+  </svg>
+)
+
 export default function VagasBoard({
   vagas: vagasIniciais,
   ultima: ultimaInicial,
@@ -310,14 +339,23 @@ export default function VagasBoard({
 
   return (
     <div className={styles.page}>
+      <div className={styles.topbar}>
+        <div className={styles.topbarInner}>
+          <span className={styles.logo} aria-hidden>
+            VC
+          </span>
+          <span className={styles.brand}>Vagas Caxias do Sul</span>
+        </div>
+      </div>
+
       <header className={styles.hero}>
         <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>Caxias do Sul · RS</p>
-          <h1 className={styles.title}>Vagas de Assistente e Analista</h1>
-          <p className={styles.subtitle}>
-            Painel automático atualizado de hora em hora a partir de Gupy, LinkedIn,
-            Vagas.com, Jobfy e Indeed.
-          </p>
+          <div>
+            <h1 className={styles.title}>Vagas de Assistente e Analista</h1>
+            <p className={styles.eyebrow}>
+              <IconPin /> Caxias do Sul · RS
+            </p>
+          </div>
           <div className={styles.stats}>
             <div className={styles.stat}>
               <strong>{itens.length}</strong>
@@ -328,13 +366,10 @@ export default function VagasBoard({
               <span>ainda não vistas</span>
             </div>
             {ultima && (
-              <div className={styles.stat}>
-                <strong>
-                  {fmtHora(ultima.executada_em)}
-                  <span className={atualizando ? styles.pulseOn : styles.pulse} aria-hidden />
-                </strong>
-                <span>{fmtData(ultima.executada_em)} · última atualização</span>
-              </div>
+              <span className={styles.atualizado}>
+                Atualizado {fmtHora(ultima.executada_em)} · {fmtData(ultima.executada_em)}
+                <span className={atualizando ? styles.pulseOn : styles.pulse} aria-hidden />
+              </span>
             )}
           </div>
         </div>
@@ -342,79 +377,101 @@ export default function VagasBoard({
 
       <main className={styles.main}>
         <div className={styles.controls}>
-          <div className={styles.searchWrap}>
-            <span className={styles.searchIcon} aria-hidden>
-              ⌕
-            </span>
-            <input
-              className={styles.search}
-              type="search"
-              placeholder="Buscar por cargo, empresa…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              aria-label="Buscar vagas"
-            />
+          <div className={styles.searchRow}>
+            <div className={styles.searchWrap}>
+              <span className={styles.searchIcon} aria-hidden>
+                <IconSearch />
+              </span>
+              <input
+                className={styles.search}
+                type="search"
+                placeholder="Cargo ou empresa…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                aria-label="Buscar vagas"
+              />
+            </div>
+            <select
+              className={styles.select}
+              value={ordem}
+              onChange={(e) => setOrdem(e.target.value as Ordem)}
+              aria-label="Ordenar"
+            >
+              <option value="recentes">Mais recentes</option>
+              <option value="antigas">Mais antigas</option>
+              <option value="salario">Maior salário</option>
+              <option value="az">Título A–Z</option>
+            </select>
           </div>
 
           <div className={styles.filterRow}>
-            <div className={styles.chips}>
-              <button
-                className={!fonte ? styles.chipOn : styles.chip}
-                onClick={() => setFonte(null)}
-              >
-                Todas fontes
-              </button>
-              {Object.entries(FONTES).map(([k, nome]) => (
+            <div className={styles.chipLine}>
+              <span className={styles.chipLabel}>Fontes</span>
+              <div className={styles.chips}>
                 <button
-                  key={k}
-                  className={fonte === k ? styles.chipOn : styles.chip}
-                  onClick={() => setFonte(fonte === k ? null : k)}
+                  className={!fonte ? styles.chipOn : styles.chip}
+                  onClick={() => setFonte(null)}
                 >
-                  {nome}
-                  <span className={styles.chipCount}>{contagemFonte[k] ?? 0}</span>
+                  Todas
                 </button>
-              ))}
+                {Object.entries(FONTES).map(([k, nome]) => (
+                  <button
+                    key={k}
+                    className={fonte === k ? styles.chipOn : styles.chip}
+                    onClick={() => setFonte(fonte === k ? null : k)}
+                  >
+                    {nome}
+                    <span className={styles.chipCount}>{contagemFonte[k] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className={styles.chips}>
-              <button
-                className={!termo ? styles.chipOn : styles.chip}
-                onClick={() => trocarCargo(null)}
-              >
-                Todos cargos
-              </button>
-              <button
-                className={termo === 'assistente' ? styles.chipOn : styles.chip}
-                onClick={() => trocarCargo(termo === 'assistente' ? null : 'assistente')}
-              >
-                Assistente
-              </button>
-              <button
-                className={termo === 'analista' ? styles.chipOn : styles.chip}
-                onClick={() => trocarCargo(termo === 'analista' ? null : 'analista')}
-              >
-                Analista
-              </button>
+            <div className={styles.chipLine}>
+              <span className={styles.chipLabel}>Cargo</span>
+              <div className={styles.chips}>
+                <button
+                  className={!termo ? styles.chipOn : styles.chip}
+                  onClick={() => trocarCargo(null)}
+                >
+                  Todos
+                </button>
+                <button
+                  className={termo === 'assistente' ? styles.chipOn : styles.chip}
+                  onClick={() => trocarCargo(termo === 'assistente' ? null : 'assistente')}
+                >
+                  Assistente
+                </button>
+                <button
+                  className={termo === 'analista' ? styles.chipOn : styles.chip}
+                  onClick={() => trocarCargo(termo === 'analista' ? null : 'analista')}
+                >
+                  Analista
+                </button>
+              </div>
             </div>
 
             {termo === 'analista' && (
-              <div className={styles.chips}>
-                <button
-                  className={!nivel ? styles.chipOn : styles.chip}
-                  onClick={() => setNivel(null)}
-                >
-                  Todos níveis
-                </button>
-                {(['jr', 'pl', 'sr', 'sem'] as Nivel[]).map((n) => (
+              <div className={styles.chipLine}>
+                <span className={styles.chipLabel}>Nível</span>
+                <div className={styles.chips}>
                   <button
-                    key={n}
-                    className={nivel === n ? styles.chipOn : styles.chip}
-                    onClick={() => setNivel(nivel === n ? null : n)}
+                    className={!nivel ? styles.chipOn : styles.chip}
+                    onClick={() => setNivel(null)}
                   >
-                    {NIVEL_NOME[n]}
-                    <span className={styles.chipCount}>{contagemNivel[n]}</span>
+                    Todos
                   </button>
-                ))}
+                  {(['jr', 'pl', 'sr', 'sem'] as Nivel[]).map((n) => (
+                    <button
+                      key={n}
+                      className={nivel === n ? styles.chipOn : styles.chip}
+                      onClick={() => setNivel(nivel === n ? null : n)}
+                    >
+                      {NIVEL_NOME[n]}
+                      <span className={styles.chipCount}>{contagemNivel[n]}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -443,40 +500,29 @@ export default function VagasBoard({
                 />
                 Ocultar candidatadas
               </label>
-              <select
-                className={styles.select}
-                value={ordem}
-                onChange={(e) => setOrdem(e.target.value as Ordem)}
-                aria-label="Ordenar"
-              >
-                <option value="recentes">Mais recentes</option>
-                <option value="antigas">Mais antigas</option>
-                <option value="salario">Maior salário</option>
-                <option value="az">Título A–Z</option>
-              </select>
             </div>
           </div>
+        </div>
 
-          <div className={styles.resultBar}>
-            <span>
-              {filtradas.length} de {itens.length} vagas
-              {naoVistasCount > 0 && (
-                <span className={styles.naoVistasInfo}> · {naoVistasCount} não vistas</span>
-              )}
-            </span>
-            <span className={styles.barActions}>
-              {naoVistasCount > 0 && (
-                <button className={styles.clear} onClick={marcarTodasVistas}>
-                  Marcar todas como vistas
-                </button>
-              )}
-              {temFiltro && (
-                <button className={styles.clear} onClick={limpar}>
-                  Limpar filtros
-                </button>
-              )}
-            </span>
-          </div>
+        <div className={styles.resultBar}>
+          <span>
+            Mostrando <strong>{filtradas.length}</strong> de {itens.length} vagas
+            {naoVistasCount > 0 && (
+              <span className={styles.naoVistasInfo}> · {naoVistasCount} não vistas</span>
+            )}
+          </span>
+          <span className={styles.barActions}>
+            {naoVistasCount > 0 && (
+              <button className={styles.clear} onClick={marcarTodasVistas}>
+                Marcar todas como vistas
+              </button>
+            )}
+            {temFiltro && (
+              <button className={styles.clear} onClick={limpar}>
+                Limpar filtros
+              </button>
+            )}
+          </span>
         </div>
 
         {filtradas.length === 0 ? (
@@ -518,7 +564,7 @@ export default function VagasBoard({
                       </span>
                       <span className={styles.headTags}>
                         {aplicada && <span className={styles.candTag}>CANDIDATADA</span>}
-                        {nova && <span className={styles.nova}>NOVA PRA VOCÊ</span>}
+                        {nova && !aplicada && <span className={styles.nova}>NOVA PRA VOCÊ</span>}
                       </span>
                     </div>
                     <a
@@ -532,10 +578,26 @@ export default function VagasBoard({
                     </a>
                     {v.empresa && <p className={styles.empresa}>{v.empresa}</p>}
                     <div className={styles.meta}>
-                      {v.cidade && <span>📍 {v.cidade}</span>}
-                      {v.salario && <span className={styles.salario}>💰 {v.salario}</span>}
-                      {v.tipo && <span>{v.tipo}</span>}
-                      {fmtData(v.publicada_em) && <span>{fmtData(v.publicada_em)}</span>}
+                      {v.cidade && (
+                        <span className={styles.metaItem}>
+                          <IconPin /> {v.cidade}
+                        </span>
+                      )}
+                      {v.salario && (
+                        <span className={`${styles.metaItem} ${styles.salario}`}>
+                          <IconMoney /> {v.salario}
+                        </span>
+                      )}
+                      {v.tipo && (
+                        <span className={styles.metaItem}>
+                          <IconWork /> {v.tipo}
+                        </span>
+                      )}
+                      {fmtData(v.publicada_em) && (
+                        <span className={styles.metaItem}>
+                          <IconClock /> {fmtData(v.publicada_em)}
+                        </span>
+                      )}
                     </div>
                     <div className={styles.cardFoot}>
                       <a
@@ -566,7 +628,7 @@ export default function VagasBoard({
                   className={styles.loadMore}
                   onClick={() => setVisiveis((n) => n + PAGINA)}
                 >
-                  Carregar mais ({filtradas.length - visiveis} restantes)
+                  Carregar mais vagas ({filtradas.length - visiveis} restantes)
                 </button>
               </div>
             )}
@@ -575,10 +637,10 @@ export default function VagasBoard({
       </main>
 
       <footer className={styles.footer}>
-        <p>
+        <div className={styles.footerInner}>
           Dados públicos de Gupy, LinkedIn, Vagas.com, Jobfy e Indeed · atualização
           automática de hora em hora. Não afiliado às plataformas.
-        </p>
+        </div>
       </footer>
     </div>
   )
