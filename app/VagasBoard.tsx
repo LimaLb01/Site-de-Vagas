@@ -15,6 +15,13 @@ const LS_CAND = 'vagas_candidatadas_v1'
 const LS_VISTAS = 'vagas_vistas_v1'
 const PAGINA = 30
 
+const CARGOS: Array<{ id: string; nome: string }> = [
+  { id: 'assistente', nome: 'Assistente' },
+  { id: 'analista', nome: 'Analista' },
+  { id: 'diversidade', nome: 'Diversidade' },
+  { id: 'psicologia', nome: 'Psicologia' },
+]
+
 type Nivel = 'jr' | 'pl' | 'sr' | 'sem'
 const NIVEL_NOME: Record<Nivel, string> = {
   jr: 'Júnior',
@@ -327,6 +334,12 @@ export default function VagasBoard({
     return c
   }, [itens])
 
+  const contagemCargo = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const v of itens) if (v.termo_busca) c[v.termo_busca] = (c[v.termo_busca] ?? 0) + 1
+    return c
+  }, [itens])
+
   const contagemNivel = useMemo(() => {
     const c: Record<Nivel, number> = { jr: 0, pl: 0, sr: 0, sem: 0 }
     for (const v of itens) if (v.termo_busca === 'analista') c[nivelDe(v)]++
@@ -499,18 +512,16 @@ export default function VagasBoard({
                 >
                   Todos
                 </button>
-                <button
-                  className={termo === 'assistente' ? styles.chipOn : styles.chip}
-                  onClick={() => trocarCargo(termo === 'assistente' ? null : 'assistente')}
-                >
-                  Assistente
-                </button>
-                <button
-                  className={termo === 'analista' ? styles.chipOn : styles.chip}
-                  onClick={() => trocarCargo(termo === 'analista' ? null : 'analista')}
-                >
-                  Analista
-                </button>
+                {CARGOS.map((c) => (
+                  <button
+                    key={c.id}
+                    className={termo === c.id ? styles.chipOn : styles.chip}
+                    onClick={() => trocarCargo(termo === c.id ? null : c.id)}
+                  >
+                    {c.nome}
+                    <span className={styles.chipCount}>{contagemCargo[c.id] ?? 0}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
