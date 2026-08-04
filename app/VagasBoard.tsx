@@ -290,6 +290,10 @@ export default function VagasBoard({
     gravaVistas(new Set(itens.map((i) => i.key)))
   }
 
+  const desmarcarTodasVistas = () => {
+    gravaVistas(new Set())
+  }
+
   const toggleVista = (key: string) => {
     const n = new Set(vistas ?? [])
     if (n.has(key)) n.delete(key)
@@ -574,6 +578,15 @@ export default function VagasBoard({
             {naoVistasCount > 0 && (
               <button className={styles.clear} onClick={marcarTodasVistas}>
                 Marcar todas como vistas
+              </button>
+            )}
+            {vistas && vistas.size > 0 && (
+              <button
+                className={styles.clear}
+                onClick={desmarcarTodasVistas}
+                title="Volta todas para não vistas, para revisar a lista inteira"
+              >
+                Desmarcar todas
               </button>
             )}
             {temFiltro && (
