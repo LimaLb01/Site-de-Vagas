@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   FONTES,
   PATH_VAGAS,
@@ -118,7 +118,16 @@ function salarioNum(v: VagaMerged): number {
 
 type Ordem = 'recentes' | 'antigas' | 'az' | 'salario'
 
-const INTERVALO_MS = 3 * 60 * 1000
+const INTERVALO_MS = 60 * 1000
+
+function haQuantoTempo(ms: number | null, agora: number): string {
+  if (!ms) return 'agora'
+  const s = Math.max(0, Math.round((agora - ms) / 1000))
+  if (s < 60) return 'há instantes'
+  const m = Math.round(s / 60)
+  if (m < 60) return `há ${m} min`
+  return `há ${Math.round(m / 60)} h`
+}
 
 /* ícones inline: sem fonte de ícones externa, sem requisição extra */
 const svg = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'currentColor' } as const
@@ -159,6 +168,10 @@ export default function VagasBoard({
   const [vagas, setVagas] = useState<Vaga[]>(vagasIniciais)
   const [ultima, setUltima] = useState<Execucao | null>(ultimaInicial)
   const [atualizando, setAtualizando] = useState(false)
+  const [checadoEm, setChecadoEm] = useState<number | null>(null)
+  const [agora, setAgora] = useState(() => Date.now())
+  const [erroRede, setErroRede] = useState(false)
+  const buscandoRef = useRef(false)
   const [busca, setBusca] = useState('')
   const [fonte, setFonte] = useState<string | null>(null)
   const [termo, setTermo] = useState<string | null>(null)
@@ -173,33 +186,54 @@ export default function VagasBoard({
 
   const itens = useMemo(() => mesclar(vagas), [vagas])
 
-  // mantém a lista fresca sozinha: a cada 3 min e ao voltar para a aba
-  useEffect(() => {
-    let vivo = true
-    const atualiza = async () => {
-      if (document.hidden) return
-      setAtualizando(true)
+  // busca a lista mais recente. `manual` ignora a checagem de aba oculta.
+  const atualizar = useCallback(async (manual = false) => {
+    if (!manual && document.hidden) return
+    if (buscandoRef.current) return
+    buscandoRef.current = true
+    setAtualizando(true)
+    try {
       const [novas, exec] = await Promise.all([
         fetchAoVivo<Vaga>(PATH_VAGAS),
         fetchAoVivo<Execucao>(PATH_EXECUCAO),
       ])
-      if (!vivo) return
-      if (novas) setVagas(novas)
+      if (novas) {
+        setVagas(novas)
+        setErroRede(false)
+      } else {
+        setErroRede(true)
+      }
       if (exec && exec[0]) setUltima(exec[0])
+      setChecadoEm(Date.now())
+    } catch {
+      setErroRede(true)
+    } finally {
+      buscandoRef.current = false
       setAtualizando(false)
     }
-    const id = setInterval(atualiza, INTERVALO_MS)
+  }, [])
+
+  // mantém a lista fresca: no intervalo, ao voltar para a aba e ao reconectar
+  useEffect(() => {
+    const id = setInterval(() => atualizar(), INTERVALO_MS)
     const aoVoltar = () => {
-      if (!document.hidden) atualiza()
+      if (!document.hidden) atualizar()
     }
     document.addEventListener('visibilitychange', aoVoltar)
     window.addEventListener('focus', aoVoltar)
+    window.addEventListener('online', aoVoltar)
     return () => {
-      vivo = false
       clearInterval(id)
       document.removeEventListener('visibilitychange', aoVoltar)
       window.removeEventListener('focus', aoVoltar)
+      window.removeEventListener('online', aoVoltar)
     }
+  }, [atualizar])
+
+  // relógio: reconta "há X" a cada 15s para provar que o painel está vivo
+  useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 15000)
+    return () => clearInterval(id)
   }, [])
 
   // carrega "me candidatei" do localStorage (por navegador)
@@ -254,6 +288,13 @@ export default function VagasBoard({
 
   const marcarTodasVistas = () => {
     gravaVistas(new Set(itens.map((i) => i.key)))
+  }
+
+  const toggleVista = (key: string) => {
+    const n = new Set(vistas ?? [])
+    if (n.has(key)) n.delete(key)
+    else n.add(key)
+    gravaVistas(n)
   }
 
   // antes de carregar o localStorage, não marca nada como novo (evita piscar)
@@ -365,12 +406,30 @@ export default function VagasBoard({
               <strong>{naoVistasCount}</strong>
               <span>ainda não vistas</span>
             </div>
-            {ultima && (
-              <span className={styles.atualizado}>
-                Atualizado {fmtHora(ultima.executada_em)} · {fmtData(ultima.executada_em)}
+            <span className={styles.atualizado}>
+              {ultima && (
+                <>
+                  Coleta {fmtHora(ultima.executada_em)} · {fmtData(ultima.executada_em)}
+                  <br />
+                </>
+              )}
+              <span className={styles.checagem}>
                 <span className={atualizando ? styles.pulseOn : styles.pulse} aria-hidden />
+                {erroRede
+                  ? 'sem conexão — tentando'
+                  : atualizando
+                    ? 'verificando…'
+                    : `verificado ${haQuantoTempo(checadoEm, agora)}`}
+                <button
+                  className={styles.refresh}
+                  onClick={() => atualizar(true)}
+                  disabled={atualizando}
+                  title="Buscar vagas agora"
+                >
+                  atualizar
+                </button>
               </span>
-            )}
+            </span>
           </div>
         </div>
       </header>
@@ -609,14 +668,24 @@ export default function VagasBoard({
                       >
                         Ver vaga →
                       </a>
-                      <label className={styles.candCheck}>
-                        <input
-                          type="checkbox"
-                          checked={aplicada}
-                          onChange={() => toggleCand(v.key)}
-                        />
-                        Me candidatei
-                      </label>
+                      <span className={styles.checks}>
+                        <label className={styles.candCheck} title="Marcar como já visualizada">
+                          <input
+                            type="checkbox"
+                            checked={!nova}
+                            onChange={() => toggleVista(v.key)}
+                          />
+                          Visualizada
+                        </label>
+                        <label className={styles.candCheck}>
+                          <input
+                            type="checkbox"
+                            checked={aplicada}
+                            onChange={() => toggleCand(v.key)}
+                          />
+                          Me candidatei
+                        </label>
+                      </span>
                     </div>
                   </li>
                 )

@@ -118,8 +118,30 @@
   color: var(--text-dim);
   background: var(--surface-3);
   border-radius: var(--radius-sm);
-  padding: 0.3rem 0.6rem;
+  padding: 0.4rem 0.65rem;
+  line-height: 1.6;
   white-space: nowrap;
+}
+.checagem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.refresh {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: 0.15rem;
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.refresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+  text-decoration: none;
 }
 
 /* ---------- Main ---------- */
@@ -448,6 +470,13 @@ a.badge:hover {
 .apply:hover {
   text-decoration: underline;
 }
+.checks {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .candCheck {
   display: inline-flex;
   align-items: center;
@@ -456,6 +485,7 @@ a.badge:hover {
   color: var(--text-dim);
   cursor: pointer;
   user-select: none;
+  white-space: nowrap;
 }
 .candCheck input {
   width: 0.95rem;
