@@ -403,6 +403,9 @@ export default function VagasBoard({
             VC
           </span>
           <span className={styles.brand}>Vagas Caxias do Sul</span>
+          <a className={styles.navLink} href="/simulado-ads">
+            Simulado ADS →
+          </a>
         </div>
       </div>
 

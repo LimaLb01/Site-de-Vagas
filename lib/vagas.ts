@@ -44,10 +44,19 @@ async function supabaseGet<T>(path: string): Promise<T[]> {
   }
 }
 
+const ORDEM = 'order=capturada_em.desc,publicada_em.desc.nullslast&limit=1000'
+
+// painel principal: cargos de Caxias, sem as vagas do simulado ADS
+export const PATH_VAGAS = `vagas?select=*&ativa=eq.true&termo_busca=neq.ads&${ORDEM}`
+// simulado ADS: vagas de tecnologia (Caxias + remoto)
+export const PATH_ADS = `vagas?select=*&ativa=eq.true&termo_busca=eq.ads&${ORDEM}`
+
 export function getVagas() {
-  return supabaseGet<Vaga>(
-    'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=1000',
-  )
+  return supabaseGet<Vaga>(PATH_VAGAS)
+}
+
+export function getVagasAds() {
+  return supabaseGet<Vaga>(PATH_ADS)
 }
 
 export function getUltimaExecucao() {
@@ -55,9 +64,6 @@ export function getUltimaExecucao() {
     'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1',
   )
 }
-
-export const PATH_VAGAS =
-  'vagas?select=*&ativa=eq.true&order=capturada_em.desc,publicada_em.desc.nullslast&limit=1000'
 export const PATH_EXECUCAO =
   'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1'
 
