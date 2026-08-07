@@ -97,6 +97,10 @@ function mesclar(vagas: Vaga[]): VagaMerged[] {
   return [...mapa.values()]
 }
 
+function ehRemota(v: VagaMerged): boolean {
+  return /remoto|home ?office/i.test(`${v.cidade ?? ''} ${v.tipo ?? ''}`)
+}
+
 function nivelDe(v: VagaMerged): Nivel {
   const t = v.titulo.toLowerCase()
   if (/\bs[êe]nior\b|\bsr\b/.test(t)) return 'sr'
@@ -187,6 +191,7 @@ export default function VagasBoard({
   const [fonte, setFonte] = useState<string | null>(null)
   const [termo, setTermo] = useState<string | null>(null)
   const [nivel, setNivel] = useState<Nivel | null>(null)
+  const [local, setLocal] = useState<'caxias' | 'remoto' | null>(null)
   const [soNovas, setSoNovas] = useState(false)
   const [soComSalario, setSoComSalario] = useState(false)
   const [ocultarCand, setOcultarCand] = useState(false)
@@ -344,6 +349,12 @@ export default function VagasBoard({
     return c
   }, [itens])
 
+  const contagemLocal = useMemo(() => {
+    let remoto = 0
+    for (const v of itens) if (ehRemota(v)) remoto++
+    return { remoto, caxias: itens.length - remoto }
+  }, [itens])
+
   const contagemNivel = useMemo(() => {
     const c: Record<Nivel, number> = { jr: 0, pl: 0, sr: 0, sem: 0 }
     for (const v of itens) if (v.termo_busca === 'analista') c[nivelDe(v)]++
@@ -361,6 +372,8 @@ export default function VagasBoard({
       if (fonte && !v.fontes.some((f) => f.fonte === fonte)) return false
       if (termo && v.termo_busca !== termo) return false
       if (termo === 'analista' && nivel && nivelDe(v) !== nivel) return false
+      if (local === 'remoto' && !ehRemota(v)) return false
+      if (local === 'caxias' && ehRemota(v)) return false
       if (soNovas && !naoVista(v)) return false
       if (soComSalario && !v.salario) return false
       if (ocultarCand && candidatadas.has(v.key)) return false
@@ -379,12 +392,12 @@ export default function VagasBoard({
     })
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itens, busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, candidatadas, vistas, ordem])
+  }, [itens, busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, candidatadas, vistas, ordem])
 
   // reseta a paginação quando os filtros mudam
   useEffect(() => {
     setVisiveis(PAGINA)
-  }, [busca, fonte, termo, nivel, soNovas, soComSalario, ocultarCand, ordem])
+  }, [busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, ordem])
 
   const mostradas = filtradas.slice(0, visiveis)
 
@@ -393,11 +406,13 @@ export default function VagasBoard({
     setFonte(null)
     setTermo(null)
     setNivel(null)
+    setLocal(null)
     setSoNovas(false)
     setSoComSalario(false)
     setOcultarCand(false)
   }
-  const temFiltro = busca || fonte || termo || nivel || soNovas || soComSalario || ocultarCand
+  const temFiltro =
+    busca || fonte || termo || nivel || local || soNovas || soComSalario || ocultarCand
 
   return (
     <div className={styles.page}>
@@ -507,6 +522,32 @@ export default function VagasBoard({
                     <span className={styles.chipCount}>{contagemFonte[k] ?? 0}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className={styles.chipLine}>
+              <span className={styles.chipLabel}>Local</span>
+              <div className={styles.chips}>
+                <button
+                  className={!local ? styles.chipOn : styles.chip}
+                  onClick={() => setLocal(null)}
+                >
+                  Todos
+                </button>
+                <button
+                  className={local === 'caxias' ? styles.chipOn : styles.chip}
+                  onClick={() => setLocal(local === 'caxias' ? null : 'caxias')}
+                >
+                  Caxias do Sul
+                  <span className={styles.chipCount}>{contagemLocal.caxias}</span>
+                </button>
+                <button
+                  className={local === 'remoto' ? styles.chipOn : styles.chip}
+                  onClick={() => setLocal(local === 'remoto' ? null : 'remoto')}
+                >
+                  Remoto
+                  <span className={styles.chipCount}>{contagemLocal.remoto}</span>
+                </button>
               </div>
             </div>
 
