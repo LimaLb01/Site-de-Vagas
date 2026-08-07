@@ -9,6 +9,7 @@ import {
   type Vaga,
   type Execucao,
 } from '@/lib/vagas'
+import LogoEmpresa from './LogoEmpresa'
 import styles from './page.module.css'
 
 const LS_CAND = 'vagas_candidatadas_v1'
@@ -41,6 +42,7 @@ interface VagaMerged {
   cidade: string | null
   tipo: string | null
   salario: string | null
+  logo_url: string | null
   termo_busca: string | null
   publicada_em: string | null
   capturada_em: string
@@ -70,6 +72,7 @@ function mesclar(vagas: Vaga[]): VagaMerged[] {
         cidade: v.cidade,
         tipo: v.tipo,
         salario: v.salario,
+        logo_url: v.logo_url,
         termo_busca: v.termo_busca,
         publicada_em: v.publicada_em,
         capturada_em: v.capturada_em,
@@ -78,6 +81,7 @@ function mesclar(vagas: Vaga[]): VagaMerged[] {
     } else {
       if (!ex.fontes.some((f) => f.fonte === v.fonte)) ex.fontes.push({ fonte: v.fonte, url: v.url })
       if (!ex.salario && v.salario) ex.salario = v.salario
+      if (!ex.logo_url && v.logo_url) ex.logo_url = v.logo_url
       if (!ex.tipo && v.tipo) ex.tipo = v.tipo
       if (v.capturada_em > ex.capturada_em) ex.capturada_em = v.capturada_em
       const pa = v.publicada_em ?? ''
@@ -653,16 +657,21 @@ export default function VagasBoard({
                         {nova && !aplicada && <span className={styles.nova}>NOVA PRA VOCÊ</span>}
                       </span>
                     </div>
-                    <a
-                      className={styles.cardTitle}
-                      href={principal.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => marcarVista(v.key)}
-                    >
-                      {v.titulo}
-                    </a>
-                    {v.empresa && <p className={styles.empresa}>{v.empresa}</p>}
+                    <div className={styles.cardCorpo}>
+                      <LogoEmpresa empresa={v.empresa} logoUrl={v.logo_url} />
+                      <div className={styles.cardTexto}>
+                        <a
+                          className={styles.cardTitle}
+                          href={principal.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => marcarVista(v.key)}
+                        >
+                          {v.titulo}
+                        </a>
+                        {v.empresa && <p className={styles.empresa}>{v.empresa}</p>}
+                      </div>
+                    </div>
                     <div className={styles.meta}>
                       {v.cidade && (
                         <span className={styles.metaItem}>

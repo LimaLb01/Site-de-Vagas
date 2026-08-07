@@ -11,6 +11,7 @@ export interface Vaga {
   cidade: string | null
   tipo: string | null
   salario: string | null
+  logo_url: string | null
   url: string
   termo_busca: string | null
   publicada_em: string | null
