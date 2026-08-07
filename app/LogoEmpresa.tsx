@@ -36,15 +36,14 @@ function slugEmpresa(nome: string): string {
     .trim()
 }
 
-// quando a fonte não traz logo, tenta serviços públicos de ícone pelo domínio
-// provável da empresa. Cada erro avança para o próximo; o último é o monograma.
+// quando a fonte não traz logo, busca o ícone do site provável da empresa.
+// Cada erro avança para o próximo; o último recurso é o monograma.
+// (Clearbit foi descartado: o serviço público saiu do ar e falhava em 100% dos testes.)
 function candidatos(logoUrl: string | null, empresa: string): string[] {
   const urls: string[] = []
   if (logoUrl) urls.push(logoUrl)
   const slug = slugEmpresa(empresa)
   if (slug.length >= 3) {
-    urls.push(`https://logo.clearbit.com/${slug}.com.br`)
-    urls.push(`https://logo.clearbit.com/${slug}.com`)
     urls.push(`https://www.google.com/s2/favicons?domain=${slug}.com.br&sz=128`)
     urls.push(`https://www.google.com/s2/favicons?domain=${slug}.com&sz=128`)
   }
@@ -71,6 +70,14 @@ export default function LogoEmpresa({
         loading="lazy"
         referrerPolicy="no-referrer"
         onError={() => setI((n) => n + 1)}
+        onLoad={(e) => {
+          // o Google devolve um globo genérico de 16px quando não acha o site;
+          // nesse caso o monograma identifica melhor a empresa
+          const img = e.currentTarget
+          if (img.naturalWidth > 0 && img.naturalWidth <= 16 && urls[i].includes('google.com')) {
+            setI((n) => n + 1)
+          }
+        }}
       />
     )
   }
