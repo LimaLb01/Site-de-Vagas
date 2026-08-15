@@ -68,6 +68,53 @@ export function getUltimaExecucao() {
 export const PATH_EXECUCAO =
   'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1'
 
+/* ---------- sincronização entre dispositivos ----------
+   Sem login: um código aleatório longo identifica o perfil. Quem tem o código
+   (celular e computador) compartilha o mesmo histórico de vistas/candidaturas. */
+
+export interface Prefs {
+  vistas: string[]
+  candidatadas: string[]
+}
+
+export function novoCodigo(): string {
+  const a = new Uint8Array(12)
+  crypto.getRandomValues(a)
+  return Array.from(a, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 20)
+}
+
+export async function lerPrefs(codigo: string): Promise<Prefs | null> {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/preferencias?codigo=eq.${encodeURIComponent(codigo)}&select=vistas,candidatadas`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }, cache: 'no-store' },
+    )
+    if (!res.ok) return null
+    const linhas = (await res.json()) as Prefs[]
+    return linhas[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function salvarPrefs(codigo: string, prefs: Prefs): Promise<boolean> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/preferencias?on_conflict=codigo`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({ codigo, ...prefs, atualizado_em: new Date().toISOString() }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 // usado no navegador para atualizar sem recarregar a página (sempre dado fresco)
 export async function fetchAoVivo<T>(path: string): Promise<T[] | null> {
   try {

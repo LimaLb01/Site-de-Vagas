@@ -50,6 +50,51 @@
   background: var(--surface-3);
 }
 
+/* ---------- Sincronização entre aparelhos ---------- */
+.syncPainel {
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--border);
+}
+.syncInner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.syncTexto {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  max-width: 62ch;
+}
+.syncLinha {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.syncLinha .search {
+  max-width: 340px;
+}
+.syncCodigo {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--brand);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.7rem;
+  user-select: all;
+}
+.syncStatus {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* ---------- Cabeçalho ---------- */
 .hero {
   background: var(--surface);

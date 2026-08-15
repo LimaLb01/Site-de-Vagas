@@ -6,6 +6,9 @@ import {
   PATH_VAGAS,
   PATH_EXECUCAO,
   fetchAoVivo,
+  novoCodigo,
+  lerPrefs,
+  salvarPrefs,
   type Vaga,
   type Execucao,
 } from '@/lib/vagas'
@@ -14,6 +17,7 @@ import styles from './page.module.css'
 
 const LS_CAND = 'vagas_candidatadas_v1'
 const LS_VISTAS = 'vagas_vistas_v1'
+const LS_CODIGO = 'vagas_codigo_sync_v1'
 const PAGINA = 30
 
 const CARGOS: Array<{ id: string; nome: string }> = [
@@ -198,6 +202,10 @@ export default function VagasBoard({
   const [ordem, setOrdem] = useState<Ordem>('recentes')
   const [candidatadas, setCandidatadas] = useState<Set<string>>(new Set())
   const [vistas, setVistas] = useState<Set<string> | null>(null)
+  const [codigo, setCodigo] = useState<string | null>(null)
+  const [mostrarSync, setMostrarSync] = useState(false)
+  const [codigoDigitado, setCodigoDigitado] = useState('')
+  const [statusSync, setStatusSync] = useState<string | null>(null)
   const [visiveis, setVisiveis] = useState(PAGINA)
 
   const itens = useMemo(() => mesclar(vagas), [vagas])
@@ -252,6 +260,65 @@ export default function VagasBoard({
     return () => clearInterval(id)
   }, [])
 
+  // Sincronização entre aparelhos: o localStorage é isolado por navegador, então
+  // celular e computador só compartilham histórico através do código.
+  // A mesclagem é por união — nunca desmarca algo que o outro aparelho marcou.
+  useEffect(() => {
+    let cod: string | null = null
+    try {
+      cod = localStorage.getItem(LS_CODIGO)
+      if (!cod) {
+        cod = novoCodigo()
+        localStorage.setItem(LS_CODIGO, cod)
+      }
+    } catch {
+      return
+    }
+    setCodigo(cod)
+    void (async () => {
+      const remoto = await lerPrefs(cod!)
+      if (!remoto) return
+      setVistas((atual) => {
+        const uniao = new Set([...(atual ?? []), ...remoto.vistas])
+        try {
+          localStorage.setItem(LS_VISTAS, JSON.stringify([...uniao]))
+        } catch {}
+        return uniao
+      })
+      setCandidatadas((atual) => {
+        const uniao = new Set([...atual, ...remoto.candidatadas])
+        try {
+          localStorage.setItem(LS_CAND, JSON.stringify([...uniao]))
+        } catch {}
+        return uniao
+      })
+    })()
+  }, [])
+
+  // troca o aparelho para um código existente e puxa o histórico de lá
+  const usarCodigo = async () => {
+    const cod = codigoDigitado.trim()
+    if (cod.length < 12) {
+      setStatusSync('Código inválido.')
+      return
+    }
+    setStatusSync('Buscando…')
+    const remoto = await lerPrefs(cod)
+    if (!remoto) {
+      setStatusSync('Código não encontrado.')
+      return
+    }
+    try {
+      localStorage.setItem(LS_CODIGO, cod)
+      localStorage.setItem(LS_VISTAS, JSON.stringify(remoto.vistas))
+      localStorage.setItem(LS_CAND, JSON.stringify(remoto.candidatadas))
+    } catch {}
+    setCodigo(cod)
+    setVistas(new Set(remoto.vistas))
+    setCandidatadas(new Set(remoto.candidatadas))
+    setStatusSync(`Sincronizado: ${remoto.vistas.length} vistas.`)
+  }
+
   // carrega "me candidatei" do localStorage (por navegador)
   useEffect(() => {
     try {
@@ -288,11 +355,19 @@ export default function VagasBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // envia para o servidor sem travar a interface; a fonte da verdade local
+  // continua sendo o localStorage, o servidor só espelha para os outros aparelhos
+  const enviarPrefs = (v: Set<string>, c: Set<string>) => {
+    if (!codigo) return
+    void salvarPrefs(codigo, { vistas: [...v], candidatadas: [...c] })
+  }
+
   const gravaVistas = (s: Set<string>) => {
     setVistas(s)
     try {
       localStorage.setItem(LS_VISTAS, JSON.stringify([...s]))
     } catch {}
+    enviarPrefs(s, candidatadas)
   }
 
   const marcarVista = (key: string) => {
@@ -328,6 +403,7 @@ export default function VagasBoard({
       try {
         localStorage.setItem(LS_CAND, JSON.stringify([...n]))
       } catch {}
+      enviarPrefs(vistas ?? new Set(), n)
       return n
     })
   }
@@ -422,11 +498,57 @@ export default function VagasBoard({
             VC
           </span>
           <span className={styles.brand}>Vagas Caxias do Sul</span>
+          <button
+            className={styles.navLink}
+            onClick={() => setMostrarSync((v) => !v)}
+            title="Usar o mesmo histórico no celular e no computador"
+          >
+            Sincronizar
+          </button>
           <a className={styles.navLink} href="/simulado-ads">
             Simulado ADS →
           </a>
         </div>
       </div>
+
+      {mostrarSync && (
+        <div className={styles.syncPainel}>
+          <div className={styles.syncInner}>
+            <p className={styles.syncTexto}>
+              O histórico de vagas vistas fica salvo em cada aparelho. Para usar o
+              mesmo no celular e no computador, copie este código e informe-o no
+              outro aparelho.
+            </p>
+            <div className={styles.syncLinha}>
+              <code className={styles.syncCodigo}>{codigo ?? '…'}</code>
+              <button
+                className={styles.chip}
+                onClick={() => {
+                  if (codigo) {
+                    void navigator.clipboard?.writeText(codigo)
+                    setStatusSync('Código copiado.')
+                  }
+                }}
+              >
+                Copiar
+              </button>
+            </div>
+            <div className={styles.syncLinha}>
+              <input
+                className={styles.search}
+                placeholder="Cole aqui o código do outro aparelho"
+                value={codigoDigitado}
+                onChange={(e) => setCodigoDigitado(e.target.value)}
+                aria-label="Código de sincronização"
+              />
+              <button className={styles.chipOn} onClick={() => void usarCodigo()}>
+                Usar
+              </button>
+            </div>
+            {statusSync && <p className={styles.syncStatus}>{statusSync}</p>}
+          </div>
+        </div>
+      )}
 
       <header className={styles.hero}>
         <div className={styles.heroInner}>
