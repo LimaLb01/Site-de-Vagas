@@ -6,6 +6,8 @@ import {
   PATH_VAGAS,
   PATH_EXECUCAO,
   fetchAoVivo,
+  fetchAoVivoTodas,
+  rotuloTipo,
   novoCodigo,
   lerPrefs,
   salvarPrefs,
@@ -218,7 +220,7 @@ export default function VagasBoard({
     setAtualizando(true)
     try {
       const [novas, exec] = await Promise.all([
-        fetchAoVivo<Vaga>(PATH_VAGAS),
+        fetchAoVivoTodas<Vaga>(PATH_VAGAS),
         fetchAoVivo<Execucao>(PATH_EXECUCAO),
       ])
       if (novas) {
@@ -846,9 +848,9 @@ export default function VagasBoard({
                           <IconMoney /> {v.salario}
                         </span>
                       )}
-                      {v.tipo && (
+                      {rotuloTipo(v.tipo) && (
                         <span className={styles.metaItem}>
-                          <IconWork /> {v.tipo}
+                          <IconWork /> {rotuloTipo(v.tipo)}
                         </span>
                       )}
                       {fmtData(v.publicada_em) && (
