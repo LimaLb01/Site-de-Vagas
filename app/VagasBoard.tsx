@@ -7,6 +7,7 @@ import {
   PATH_EXECUCAO,
   fetchAoVivo,
   fetchAoVivoTodas,
+  buscarCandidatadas,
   rotuloTipo,
   novoCodigo,
   lerPrefs,
@@ -53,6 +54,7 @@ interface VagaMerged {
   publicada_em: string | null
   capturada_em: string
   fontes: Fonte[]
+  encerrada: boolean
 }
 
 function norm(s: string | null): string {
@@ -83,12 +85,15 @@ function mesclar(vagas: Vaga[]): VagaMerged[] {
         publicada_em: v.publicada_em,
         capturada_em: v.capturada_em,
         fontes: [{ fonte: v.fonte, url: v.url }],
+        encerrada: v.ativa === false,
       })
     } else {
       if (!ex.fontes.some((f) => f.fonte === v.fonte)) ex.fontes.push({ fonte: v.fonte, url: v.url })
       if (!ex.salario && v.salario) ex.salario = v.salario
       if (!ex.logo_url && v.logo_url) ex.logo_url = v.logo_url
       if (!ex.tipo && v.tipo) ex.tipo = v.tipo
+      // encerrada só quando nenhuma fonte ainda tem a vaga aberta
+      ex.encerrada = ex.encerrada && v.ativa === false
       if (v.capturada_em > ex.capturada_em) ex.capturada_em = v.capturada_em
       const pa = v.publicada_em ?? ''
       const pe = ex.publicada_em ?? ''
@@ -201,6 +206,8 @@ export default function VagasBoard({
   const [soNovas, setSoNovas] = useState(false)
   const [soComSalario, setSoComSalario] = useState(false)
   const [ocultarCand, setOcultarCand] = useState(false)
+  const [soCand, setSoCand] = useState(false)
+  const [vagasCand, setVagasCand] = useState<Vaga[]>([])
   const [ordem, setOrdem] = useState<Ordem>('recentes')
   const [candidatadas, setCandidatadas] = useState<Set<string>>(new Set())
   const [vistas, setVistas] = useState<Set<string> | null>(null)
@@ -444,9 +451,31 @@ export default function VagasBoard({
     setNivel(null)
   }
 
+  // "Só candidatadas" também mostra as vagas que já encerraram, que o painel não carrega
+  useEffect(() => {
+    if (!soCand) return
+    if (candidatadas.size === 0) {
+      setVagasCand([])
+      return
+    }
+    let cancelado = false
+    buscarCandidatadas([...candidatadas]).then((r) => {
+      if (!cancelado && r) setVagasCand(r)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [soCand, candidatadas])
+
+  const itensComEncerradas = useMemo(
+    () => (soCand ? mesclar([...vagas, ...vagasCand]) : itens),
+    [soCand, vagas, vagasCand, itens],
+  )
+
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
-    let r = itens.filter((v) => {
+    let r = itensComEncerradas.filter((v) => {
+      if (soCand && !candidatadas.has(v.key)) return false
       if (fonte && !v.fontes.some((f) => f.fonte === fonte)) return false
       if (termo && v.termo_busca !== termo) return false
       if (termo === 'analista' && nivel && nivelDe(v) !== nivel) return false
@@ -470,14 +499,15 @@ export default function VagasBoard({
     })
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itens, busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, candidatadas, vistas, ordem])
+  }, [itensComEncerradas, soCand, busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, candidatadas, vistas, ordem])
 
   // reseta a paginação quando os filtros mudam
   useEffect(() => {
     setVisiveis(PAGINA)
-  }, [busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, ordem])
+  }, [busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, soCand, ordem])
 
   const mostradas = filtradas.slice(0, visiveis)
+  const encerradasNaLista = soCand ? filtradas.filter((v) => v.encerrada).length : 0
 
   const limpar = () => {
     setBusca('')
@@ -488,9 +518,10 @@ export default function VagasBoard({
     setSoNovas(false)
     setSoComSalario(false)
     setOcultarCand(false)
+    setSoCand(false)
   }
   const temFiltro =
-    busca || fonte || termo || nivel || local || soNovas || soComSalario || ocultarCand
+    busca || fonte || termo || nivel || local || soNovas || soComSalario || ocultarCand || soCand
 
   return (
     <div className={styles.page}>
@@ -742,9 +773,23 @@ export default function VagasBoard({
                 <input
                   type="checkbox"
                   checked={ocultarCand}
-                  onChange={(e) => setOcultarCand(e.target.checked)}
+                  onChange={(e) => {
+                    setOcultarCand(e.target.checked)
+                    if (e.target.checked) setSoCand(false)
+                  }}
                 />
                 Ocultar candidatadas
+              </label>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={soCand}
+                  onChange={(e) => {
+                    setSoCand(e.target.checked)
+                    if (e.target.checked) setOcultarCand(false)
+                  }}
+                />
+                Só candidatadas{candidatadas.size > 0 ? ` (${candidatadas.size})` : ''}
               </label>
             </div>
           </div>
@@ -752,7 +797,13 @@ export default function VagasBoard({
 
         <div className={styles.resultBar}>
           <span>
-            Mostrando <strong>{filtradas.length}</strong> de {itens.length} vagas
+            Mostrando <strong>{filtradas.length}</strong> de{' '}
+            {soCand ? `${candidatadas.size} candidatadas` : `${itens.length} vagas`}
+            {encerradasNaLista > 0 && (
+              <span className={styles.naoVistasInfo}>
+                {' '}· {encerradasNaLista} já {encerradasNaLista === 1 ? 'encerrada' : 'encerradas'}
+              </span>
+            )}
             {naoVistasCount > 0 && (
               <span className={styles.naoVistasInfo}> · {naoVistasCount} não vistas</span>
             )}
@@ -794,9 +845,15 @@ export default function VagasBoard({
             <ul className={styles.grid}>
               {mostradas.map((v) => {
                 const aplicada = candidatadas.has(v.key)
-                const nova = naoVista(v)
+                // encerrada nunca é "nova": o histórico de vistas só guarda vagas abertas
+                const nova = naoVista(v) && !v.encerrada
                 const principal = v.fontes[0]
-                const cls = [styles.card, aplicada && styles.cardAplicada, nova && styles.cardNova]
+                const cls = [
+                  styles.card,
+                  aplicada && styles.cardAplicada,
+                  nova && styles.cardNova,
+                  v.encerrada && styles.cardEncerrada,
+                ]
                   .filter(Boolean)
                   .join(' ')
                 return (
@@ -818,6 +875,7 @@ export default function VagasBoard({
                         ))}
                       </span>
                       <span className={styles.headTags}>
+                        {v.encerrada && <span className={styles.encerradaTag}>ENCERRADA</span>}
                         {aplicada && <span className={styles.candTag}>CANDIDATADA</span>}
                         {nova && !aplicada && <span className={styles.nova}>NOVA PRA VOCÊ</span>}
                       </span>

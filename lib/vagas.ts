@@ -16,6 +16,8 @@ export interface Vaga {
   termo_busca: string | null
   publicada_em: string | null
   capturada_em: string
+  // false = vaga encerrada na fonte (só aparece em "Só candidatadas")
+  ativa?: boolean
 }
 
 export interface Execucao {
@@ -184,4 +186,26 @@ export async function fetchAoVivoTodas<T>(path: string): Promise<T[] | null> {
     if (lote.length < LOTE) break
   }
   return todas
+}
+
+// Vagas em que o usuário se candidatou, inclusive as já encerradas (ativa=false), que o
+// painel não carrega. A função SQL recalcula a mesma chave título|empresa do painel.
+export async function buscarCandidatadas(chaves: string[]): Promise<Vaga[] | null> {
+  if (chaves.length === 0) return []
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/vagas_candidatadas`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ chaves }),
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    return (await res.json()) as Vaga[]
+  } catch {
+    return null
+  }
 }

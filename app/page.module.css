@@ -594,6 +594,19 @@ a.badge:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+/* candidatada que já encerrou na fonte: fica em "Só candidatadas", mas apagada */
+.cardEncerrada {
+  opacity: 0.72;
+}
+.encerradaTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #5f6b76;
+  background: rgba(95, 107, 118, 0.14);
+  padding: 0.22rem 0.45rem;
+  border-radius: 4px;
+}
 
 /* ---------- Carregar mais ---------- */
 .loadMoreWrap {
