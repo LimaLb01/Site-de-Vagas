@@ -31,6 +31,7 @@
   --f-vagas: #c2185b;
   --f-jobfy: #b45309;
   --f-indeed: #0b6bcb;
+  --f-infojobs: #7c3aed;
 
   --radius-sm: 4px;
   --radius-lg: 8px;
@@ -61,6 +62,7 @@
     --f-vagas: #f06292;
     --f-jobfy: #fbbf24;
     --f-indeed: #7cc0ff;
+    --f-infojobs: #c4b5fd;
   }
 }
 
