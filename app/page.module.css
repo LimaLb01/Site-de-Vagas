@@ -444,11 +444,6 @@ a.badge:hover {
   border-color: color-mix(in srgb, var(--f-jobfy) 35%, transparent);
   background: color-mix(in srgb, var(--f-jobfy) 8%, transparent);
 }
-.f_infojobs {
-  color: var(--f-infojobs);
-  border-color: color-mix(in srgb, var(--f-infojobs) 35%, transparent);
-  background: color-mix(in srgb, var(--f-infojobs) 8%, transparent);
-}
 .f_indeed {
   color: var(--f-indeed);
   border-color: color-mix(in srgb, var(--f-indeed) 35%, transparent);
