@@ -121,6 +121,7 @@ export const PATH_EXECUCAO =
 export interface Prefs {
   vistas: string[]
   candidatadas: string[]
+  atualizado_em?: string
 }
 
 export function novoCodigo(): string {
@@ -132,7 +133,7 @@ export function novoCodigo(): string {
 export async function lerPrefs(codigo: string): Promise<Prefs | null> {
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/preferencias?codigo=eq.${encodeURIComponent(codigo)}&select=vistas,candidatadas`,
+      `${SUPABASE_URL}/rest/v1/preferencias?codigo=eq.${encodeURIComponent(codigo)}&select=vistas,candidatadas,atualizado_em`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }, cache: 'no-store' },
     )
     if (!res.ok) return null
@@ -143,7 +144,10 @@ export async function lerPrefs(codigo: string): Promise<Prefs | null> {
   }
 }
 
-export async function salvarPrefs(codigo: string, prefs: Prefs): Promise<boolean> {
+// devolve o carimbo gravado: o painel usa para saber se o que veio do servidor
+// é mais novo que a última alteração feita aqui
+export async function salvarPrefs(codigo: string, prefs: Prefs): Promise<string | null> {
+  const agora = new Date().toISOString()
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/preferencias?on_conflict=codigo`, {
       method: 'POST',
@@ -153,11 +157,16 @@ export async function salvarPrefs(codigo: string, prefs: Prefs): Promise<boolean
         'Content-Type': 'application/json',
         Prefer: 'resolution=merge-duplicates,return=minimal',
       },
-      body: JSON.stringify({ codigo, ...prefs, atualizado_em: new Date().toISOString() }),
+      body: JSON.stringify({
+        codigo,
+        vistas: prefs.vistas,
+        candidatadas: prefs.candidatadas,
+        atualizado_em: agora,
+      }),
     })
-    return res.ok
+    return res.ok ? agora : null
   } catch {
-    return false
+    return null
   }
 }
 
