@@ -1,8 +1,16 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Archivo, Newsreader } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' })
+// Duas famílias bem distintas: grotesca industrial na interface, serifada no
+// título da vaga (o que se lê de verdade). Inter ficou de fora de propósito.
+const archivo = Archivo({ subsets: ['latin'], display: 'swap', variable: '--font-sans' })
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600'],
+  variable: '--font-serif',
+})
 
 export const metadata: Metadata = {
   title: 'Vagas Caxias do Sul — Assistente e Analista',
@@ -14,12 +22,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#1d4ed8',
+  themeColor: '#7a1e2b',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={inter.variable}>
+    <html lang="pt-BR" className={`${archivo.variable} ${newsreader.variable}`}>
       <body>{children}</body>
     </html>
   )

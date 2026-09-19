@@ -260,7 +260,7 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
                         </span>
                       </span>
                       <span className={styles.headTags}>
-                        {entrada && <span className={styles.nova}>ENTRADA</span>}
+                        {entrada && <span className={styles.nova}>Nível de entrada</span>}
                       </span>
                     </div>
                     <a
@@ -296,7 +296,7 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        Ver vaga →
+                        Ver vaga
                       </a>
                     </div>
                   </li>

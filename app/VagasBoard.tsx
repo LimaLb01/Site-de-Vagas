@@ -539,7 +539,7 @@ export default function VagasBoard({
             Sincronizar
           </button>
           <a className={styles.navLink} href="/simulado-ads">
-            Simulado ADS →
+            Simulado ADS
           </a>
         </div>
       </div>
@@ -588,7 +588,7 @@ export default function VagasBoard({
           <div>
             <h1 className={styles.title}>Vagas de Assistente e Analista</h1>
             <p className={styles.eyebrow}>
-              <IconPin /> Caxias do Sul · RS
+              <IconPin /> Caxias do Sul, RS
             </p>
           </div>
           <div className={styles.stats}>
@@ -603,7 +603,7 @@ export default function VagasBoard({
             <span className={styles.atualizado}>
               {ultima && (
                 <>
-                  Coleta {fmtHora(ultima.executada_em)} · {fmtData(ultima.executada_em)}
+                  Coleta de {fmtHora(ultima.executada_em)}, {fmtData(ultima.executada_em)}
                   <br />
                 </>
               )}
@@ -801,11 +801,11 @@ export default function VagasBoard({
             {soCand ? `${candidatadas.size} candidatadas` : `${itens.length} vagas`}
             {encerradasNaLista > 0 && (
               <span className={styles.naoVistasInfo}>
-                {' '}· {encerradasNaLista} já {encerradasNaLista === 1 ? 'encerrada' : 'encerradas'}
+                {', '}{encerradasNaLista} já {encerradasNaLista === 1 ? 'encerrada' : 'encerradas'}
               </span>
             )}
             {naoVistasCount > 0 && (
-              <span className={styles.naoVistasInfo}> · {naoVistasCount} não vistas</span>
+              <span className={styles.naoVistasInfo}>, {naoVistasCount} não vistas</span>
             )}
           </span>
           <span className={styles.barActions}>
@@ -875,9 +875,9 @@ export default function VagasBoard({
                         ))}
                       </span>
                       <span className={styles.headTags}>
-                        {v.encerrada && <span className={styles.encerradaTag}>ENCERRADA</span>}
-                        {aplicada && <span className={styles.candTag}>CANDIDATADA</span>}
-                        {nova && !aplicada && <span className={styles.nova}>NOVA PRA VOCÊ</span>}
+                        {v.encerrada && <span className={styles.encerradaTag}>Encerrada</span>}
+                        {aplicada && <span className={styles.candTag}>Candidatada</span>}
+                        {nova && !aplicada && <span className={styles.nova}>Nova pra você</span>}
                       </span>
                     </div>
                     <div className={styles.cardCorpo}>
@@ -925,7 +925,7 @@ export default function VagasBoard({
                         rel="noopener noreferrer"
                         onClick={() => marcarVista(v.key)}
                       >
-                        Ver vaga →
+                        Ver vaga
                       </a>
                       <span className={styles.checks}>
                         <label className={styles.candCheck} title="Marcar como já visualizada">
@@ -966,7 +966,7 @@ export default function VagasBoard({
 
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          Dados públicos de Gupy, LinkedIn, Vagas.com, Jobfy e Indeed · atualização
+          Dados públicos de Gupy, LinkedIn, Vagas.com, Jobfy e Indeed, atualização
           automática de hora em hora. Não afiliado às plataformas.
         </div>
       </footer>

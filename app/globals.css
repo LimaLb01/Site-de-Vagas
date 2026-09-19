@@ -1,67 +1,68 @@
-*,
-*::before,
-*::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-/* Swiss Style (International Typographic): sem sombras nem gradientes.
-   Hierarquia vem de peso, tamanho e linhas de 1px. */
+/* Paleta de gráfica: papel, grafite e um único vinho para o que exige ação. */
 :root {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f8f9fa;
-  --surface-3: #ecf5fe;
-  --text: #141d23;
-  --text-dim: #43474f;
-  --border: #dee2e6;
-  --border-strong: #c3c6d1;
-  --brand: #003366;
-  --brand-strong: #001e40;
-  --accent: #006e25;
-  --accent-soft: rgba(0, 110, 37, 0.1);
-  --nova: #003366;
-  --nova-soft: #d5e3ff;
-  --ring: rgba(0, 51, 102, 0.35);
+  --paper: #fbfbf9;
+  --paper-2: #f2f1ec;
+  --paper-3: #e9e7e0;
+  --ink: #1a1a1c;
+  --ink-2: #56565c;
+  --ink-3: #82828a;
+  --rule: #dcd9d1;
+  --rule-strong: #b5b1a6;
+  --wine: #7a1e2b;
+  --wine-ink: #601521;
+  --wine-wash: rgba(122, 30, 43, 0.07);
+  --moss: #2e5233;
+  --moss-wash: rgba(46, 82, 51, 0.08);
 
-  /* fontes por fonte de vaga — leitura instantânea da origem */
-  --f-gupy: #6f42c1;
-  --f-linkedin: #0a66c2;
-  --f-vagas: #c2185b;
-  --f-jobfy: #b45309;
-  --f-indeed: #0b6bcb;
+  /* fontes por origem: tons dessaturados, legíveis sobre papel */
+  --f-gupy: #5d3b8c;
+  --f-linkedin: #1d5480;
+  --f-vagas: #97304c;
+  --f-jobfy: #8a5512;
+  --f-indeed: #1f5a6e;
 
-  --radius-sm: 4px;
-  --radius-lg: 8px;
-  --gutter: 24px;
-  --container: 1200px;
+  --font-ui: var(--font-sans), system-ui, sans-serif;
+  --font-titulo: var(--font-serif), Georgia, serif;
+
+  --container: 68rem;
+  --radius: 2px;
+
+  /* apelidos antigos, para nada quebrar */
+  --bg: var(--paper);
+  --text: var(--ink);
+  --muted: var(--ink-2);
+  --line: var(--rule);
+  --brand: var(--wine);
+  --accent: var(--moss);
+  --radius-lg: var(--radius);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #10151b;
-    --surface: #151b22;
-    --surface-2: #1b232c;
-    --surface-3: #1d2733;
-    --text: #e9f2fb;
-    --text-dim: #a8b3c1;
-    --border: #2a323d;
-    --border-strong: #3a4553;
-    --brand: #a7c8ff;
-    --brand-strong: #d5e3ff;
-    --accent: #66df75;
-    --accent-soft: rgba(102, 223, 117, 0.12);
-    --nova: #a7c8ff;
-    --nova-soft: #1f477b;
-    --ring: rgba(167, 200, 255, 0.4);
+    --paper: #16171a;
+    --paper-2: #1d1f23;
+    --paper-3: #262930;
+    --ink: #eceae3;
+    --ink-2: #a8a7a0;
+    --ink-3: #85847e;
+    --rule: #2f3238;
+    --rule-strong: #4b4f59;
+    --wine: #d98d99;
+    --wine-ink: #e8adb6;
+    --wine-wash: rgba(217, 141, 153, 0.12);
+    --moss: #82b78b;
+    --moss-wash: rgba(130, 183, 139, 0.12);
 
-    --f-gupy: #b79cf0;
-    --f-linkedin: #6cb2f5;
-    --f-vagas: #f06292;
-    --f-jobfy: #fbbf24;
-    --f-indeed: #7cc0ff;
+    --f-gupy: #b295da;
+    --f-linkedin: #86b6d8;
+    --f-vagas: #dc9aab;
+    --f-jobfy: #d8ab6e;
+    --f-indeed: #8fbecb;
   }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 html {
@@ -69,27 +70,34 @@ html {
 }
 
 body {
-  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--bg);
-  color: var(--text);
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 16px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: inherit;
-  text-decoration: none;
 }
 
-input,
 button,
+input,
 select {
   font: inherit;
+  color: inherit;
 }
 
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--wine);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
