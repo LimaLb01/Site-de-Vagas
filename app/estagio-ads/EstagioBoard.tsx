@@ -8,22 +8,22 @@ import styles from '../page.module.css'
 
 const PAGINA = 30
 
-type Local = 'canoas' | 'regiao' | 'remoto'
-const LOCAL_NOME: Record<Local, string> = {
-  canoas: 'Canoas',
-  regiao: 'Região metropolitana',
-  remoto: 'Remoto',
-}
-
 // título que sugere vaga para quem está começando o curso
 const COMECO =
   /1[ºo°]?\s*(a|ao)?\s*\d?[ºo°]?\s*semestre|primeiro semestre|in[íi]cio (de|do) curso|sem experi[êe]ncia|banco de talentos|primeiro emprego/i
 
-function localDe(v: Vaga): Local {
+// Cada fonte escreve o local de um jeito ("Canoas, RS", "Canoas - RS",
+// "Greater Porto Alegre"): o filtro mostra só o nome da cidade.
+function cidadeDe(v: Vaga): string {
   const onde = `${v.cidade ?? ''} ${v.tipo ?? ''}`
-  if (/remoto|remote|home ?office/i.test(onde)) return 'remoto'
-  if (/canoas/i.test(onde)) return 'canoas'
-  return 'regiao'
+  if (/remoto|remote|home ?office/i.test(onde)) return 'Remoto'
+  const nome = (v.cidade ?? '')
+    .split(/[,–]|\s-\s/)[0]
+    .replace(/^greater\s+/i, '')
+    .replace(/^regi[ãa]o metropolitana de\s+/i, '')
+    .replace(/\s+e\s+regi[ãa]o$/i, '')
+    .trim()
+  return nome || 'Sem cidade'
 }
 
 function areaDe(v: Vaga): string {
@@ -73,7 +73,7 @@ const IconSearch = () => (
 
 export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
   const [busca, setBusca] = useState('')
-  const [local, setLocal] = useState<Local | null>(null)
+  const [local, setLocal] = useState<string | null>(null)
   const [area, setArea] = useState<string | null>(null)
   const [fonte, setFonte] = useState<string | null>(null)
   const [soComeco, setSoComeco] = useState(false)
@@ -85,13 +85,24 @@ export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
     const f: Record<string, number> = {}
     let comeco = 0
     for (const v of vagas) {
-      l[localDe(v)] = (l[localDe(v)] ?? 0) + 1
+      l[cidadeDe(v)] = (l[cidadeDe(v)] ?? 0) + 1
       a[areaDe(v)] = (a[areaDe(v)] ?? 0) + 1
       f[v.fonte] = (f[v.fonte] ?? 0) + 1
       if (COMECO.test(v.titulo)) comeco++
     }
     return { l, a, f, comeco }
   }, [vagas])
+
+  // só entram cidades que têm vaga; remoto fica por último
+  const cidades = useMemo(
+    () =>
+      Object.entries(contagem.l).sort((x, y) => {
+        if (x[0] === 'Remoto') return 1
+        if (y[0] === 'Remoto') return -1
+        return y[1] - x[1]
+      }),
+    [contagem],
+  )
 
   const areas = useMemo(
     () => Object.entries(contagem.a).sort((x, y) => y[1] - x[1]),
@@ -106,7 +117,7 @@ export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
     const q = busca.trim().toLowerCase()
     return vagas
       .filter((v) => {
-        if (local && localDe(v) !== local) return false
+        if (local && cidadeDe(v) !== local) return false
         if (area && areaDe(v) !== area) return false
         if (fonte && v.fonte !== fonte) return false
         if (soComeco && !COMECO.test(v.titulo)) return false
@@ -114,8 +125,11 @@ export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
         return true
       })
       .sort((a, b) => {
-        // perto primeiro: Canoas, depois região, depois remoto
-        const peso = (v: Vaga) => (localDe(v) === 'canoas' ? 0 : localDe(v) === 'regiao' ? 1 : 2)
+        // perto primeiro: Canoas, depois as outras cidades, depois remoto
+        const peso = (v: Vaga) => {
+          const c = cidadeDe(v)
+          return c === 'Canoas' ? 0 : c === 'Remoto' ? 2 : 1
+        }
         if (peso(a) !== peso(b)) return peso(a) - peso(b)
         return (b.publicada_em ?? b.capturada_em).localeCompare(a.publicada_em ?? a.capturada_em)
       })
@@ -160,11 +174,11 @@ export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
               <span>estágios abertos</span>
             </div>
             <div className={styles.stat}>
-              <strong>{(contagem.l.canoas ?? 0) + (contagem.l.regiao ?? 0)}</strong>
+              <strong>{vagas.length - (contagem.l.Remoto ?? 0)}</strong>
               <span>na região</span>
             </div>
             <div className={styles.stat}>
-              <strong>{contagem.l.remoto ?? 0}</strong>
+              <strong>{contagem.l.Remoto ?? 0}</strong>
               <span>remotos</span>
             </div>
           </div>
@@ -201,14 +215,14 @@ export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
                 >
                   Todos
                 </button>
-                {(['canoas', 'regiao', 'remoto'] as Local[]).map((l) => (
+                {cidades.map(([c, n]) => (
                   <button
-                    key={l}
-                    className={local === l ? styles.chipOn : styles.chip}
-                    onClick={() => setLocal(local === l ? null : l)}
+                    key={c}
+                    className={local === c ? styles.chipOn : styles.chip}
+                    onClick={() => setLocal(local === c ? null : c)}
                   >
-                    {LOCAL_NOME[l]}
-                    <span className={styles.chipCount}>{contagem.l[l] ?? 0}</span>
+                    {c}
+                    <span className={styles.chipCount}>{n}</span>
                   </button>
                 ))}
               </div>
