@@ -55,10 +55,11 @@ const ORDEM = 'order=capturada_em.desc,publicada_em.desc.nullslast,id.desc'
 const LOTE = 1000
 const MAX_LOTES = 10
 
-// painel principal: cargos de Caxias, sem as vagas do simulado ADS
-export const PATH_VAGAS = `vagas?select=*&ativa=eq.true&termo_busca=neq.ads&${ORDEM}`
-// simulado ADS: vagas de tecnologia (Caxias + remoto)
-export const PATH_ADS = `vagas?select=*&ativa=eq.true&termo_busca=eq.ads&${ORDEM}`
+// painel principal: cargos de Caxias, sem os estágios de ADS (página própria)
+// e sem as vagas do antigo simulado ADS, desativado
+export const PATH_VAGAS = `vagas?select=*&ativa=eq.true&termo_busca=not.in.(ads,estagio-ads)&${ORDEM}`
+// estágios de ADS: Canoas, região metropolitana de Porto Alegre e remoto
+export const PATH_ESTAGIO = `vagas?select=*&ativa=eq.true&termo_busca=eq.estagio-ads&${ORDEM}`
 
 async function supabaseGetTodas<T>(path: string): Promise<T[]> {
   const todas: T[] = []
@@ -74,8 +75,8 @@ export function getVagas() {
   return supabaseGetTodas<Vaga>(PATH_VAGAS)
 }
 
-export function getVagasAds() {
-  return supabaseGetTodas<Vaga>(PATH_ADS)
+export function getVagasEstagio() {
+  return supabaseGetTodas<Vaga>(PATH_ESTAGIO)
 }
 
 // A Gupy manda o regime como código (vacancy_type_effective); o card mostra o nome.

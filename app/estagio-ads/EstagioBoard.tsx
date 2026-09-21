@@ -2,40 +2,38 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { Vaga } from '@/lib/vagas'
+import { FONTES, rotuloTipo, type Vaga } from '@/lib/vagas'
+import LogoEmpresa from '../LogoEmpresa'
 import styles from '../page.module.css'
 
 const PAGINA = 30
 
-type Nivel = 'entrada' | 'pleno'
-type Local = 'caxias' | 'remoto'
-
-const NIVEL_NOME: Record<Nivel, string> = {
-  entrada: 'Entrada (júnior/estágio)',
-  pleno: 'Pleno',
-}
+type Local = 'canoas' | 'regiao' | 'remoto'
 const LOCAL_NOME: Record<Local, string> = {
-  caxias: 'Caxias do Sul',
+  canoas: 'Canoas',
+  regiao: 'Região metropolitana',
   remoto: 'Remoto',
 }
 
-function nivelDe(v: Vaga): Nivel {
-  return /j[úu]nior|\bjr\b|est[áa]gi|trainee|aprendiz|assistente|\bi\b$/i.test(v.titulo)
-    ? 'entrada'
-    : 'pleno'
-}
+// título que sugere vaga para quem está começando o curso
+const COMECO =
+  /1[ºo°]?\s*(a|ao)?\s*\d?[ºo°]?\s*semestre|primeiro semestre|in[íi]cio (de|do) curso|sem experi[êe]ncia|banco de talentos|primeiro emprego/i
 
 function localDe(v: Vaga): Local {
-  return /caxias/i.test(v.cidade ?? '') ? 'caxias' : 'remoto'
+  const onde = `${v.cidade ?? ''} ${v.tipo ?? ''}`
+  if (/remoto|remote|home ?office/i.test(onde)) return 'remoto'
+  if (/canoas/i.test(onde)) return 'canoas'
+  return 'regiao'
 }
 
 function areaDe(v: Vaga): string {
   const t = v.titulo.toLowerCase()
-  if (/dados|analytics|\bbi\b|business intelligence/.test(t)) return 'Dados / BI'
+  if (/dados|analytics|\bbi\b|business intelligence|\bdata\b/.test(t)) return 'Dados / BI'
   if (/suporte|service desk|noc|help ?desk/.test(t)) return 'Suporte'
-  if (/qa|test|qualidade de software/.test(t)) return 'QA / Testes'
-  if (/infra|cloud|devops|rede|servidor/.test(t)) return 'Infra / DevOps'
-  if (/desenvolv|program|front|back|full ?stack|software|\bdev\b/.test(t)) return 'Desenvolvimento'
+  if (/\bqa\b|test|qualidade de software/.test(t)) return 'QA / Testes'
+  if (/infra|cloud|devops|\brede/.test(t)) return 'Infra / Redes'
+  if (/desenvolv|program|front|back|full ?stack|software|\bdev\b|web|mobile|android|ios\b/.test(t))
+    return 'Desenvolvimento'
   return 'Sistemas / Outros'
 }
 
@@ -57,58 +55,80 @@ const IconMoney = () => (
     <path d="M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm9 3.5A2.5 2.5 0 1 0 12 14.5a2.5 2.5 0 0 0 0-5z" />
   </svg>
 )
+const IconWork = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M9 4h6a2 2 0 0 1 2 2v1h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3V6a2 2 0 0 1 2-2zm0 3h6V6H9v1z" />
+  </svg>
+)
 const IconClock = () => (
   <svg {...svg} aria-hidden>
     <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.6V6h-2v7.4l5 3 1-1.7-4-2.1z" />
   </svg>
 )
+const IconSearch = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z" />
+  </svg>
+)
 
-export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
-  const [nivel, setNivel] = useState<Nivel | null>(null)
+export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
+  const [busca, setBusca] = useState('')
   const [local, setLocal] = useState<Local | null>(null)
   const [area, setArea] = useState<string | null>(null)
+  const [fonte, setFonte] = useState<string | null>(null)
+  const [soComeco, setSoComeco] = useState(false)
   const [visiveis, setVisiveis] = useState(PAGINA)
 
   const contagem = useMemo(() => {
-    const n: Record<string, number> = {}
     const l: Record<string, number> = {}
     const a: Record<string, number> = {}
+    const f: Record<string, number> = {}
+    let comeco = 0
     for (const v of vagas) {
-      n[nivelDe(v)] = (n[nivelDe(v)] ?? 0) + 1
       l[localDe(v)] = (l[localDe(v)] ?? 0) + 1
       a[areaDe(v)] = (a[areaDe(v)] ?? 0) + 1
+      f[v.fonte] = (f[v.fonte] ?? 0) + 1
+      if (COMECO.test(v.titulo)) comeco++
     }
-    return { n, l, a }
+    return { l, a, f, comeco }
   }, [vagas])
 
   const areas = useMemo(
     () => Object.entries(contagem.a).sort((x, y) => y[1] - x[1]),
     [contagem],
   )
+  const fontes = useMemo(
+    () => Object.entries(contagem.f).sort((x, y) => y[1] - x[1]),
+    [contagem],
+  )
 
   const filtradas = useMemo(() => {
+    const q = busca.trim().toLowerCase()
     return vagas
       .filter((v) => {
-        if (nivel && nivelDe(v) !== nivel) return false
         if (local && localDe(v) !== local) return false
         if (area && areaDe(v) !== area) return false
+        if (fonte && v.fonte !== fonte) return false
+        if (soComeco && !COMECO.test(v.titulo)) return false
+        if (q && !`${v.titulo} ${v.empresa ?? ''}`.toLowerCase().includes(q)) return false
         return true
       })
       .sort((a, b) => {
-        // entrada primeiro: é o que interessa a quem acabou de se formar
-        const na = nivelDe(a) === 'entrada' ? 0 : 1
-        const nb = nivelDe(b) === 'entrada' ? 0 : 1
-        if (na !== nb) return na - nb
+        // perto primeiro: Canoas, depois região, depois remoto
+        const peso = (v: Vaga) => (localDe(v) === 'canoas' ? 0 : localDe(v) === 'regiao' ? 1 : 2)
+        if (peso(a) !== peso(b)) return peso(a) - peso(b)
         return (b.publicada_em ?? b.capturada_em).localeCompare(a.publicada_em ?? a.capturada_em)
       })
-  }, [vagas, nivel, local, area])
+  }, [vagas, busca, local, area, fonte, soComeco])
 
   const mostradas = filtradas.slice(0, visiveis)
-  const temFiltro = nivel || local || area
+  const temFiltro = Boolean(local || area || fonte || soComeco || busca)
   const limpar = () => {
-    setNivel(null)
+    setBusca('')
     setLocal(null)
     setArea(null)
+    setFonte(null)
+    setSoComeco(false)
     setVisiveis(PAGINA)
   }
 
@@ -121,7 +141,7 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
           </span>
           <span className={styles.brand}>Vagas Caxias do Sul</span>
           <Link href="/" className={styles.navLink}>
-            ← Painel de vagas
+            Painel de Caxias
           </Link>
         </div>
       </div>
@@ -129,24 +149,23 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <div>
-            <h1 className={styles.title}>Simulado: formado em ADS</h1>
+            <h1 className={styles.title}>Estágio em ADS, Canoas e região</h1>
             <p className={styles.eyebrow}>
-              Vagas de tecnologia em aberto agora que aceitam um recém-formado no
-              tecnólogo em Análise e Desenvolvimento de Sistemas.
+              <IconPin /> Canoas, região metropolitana de Porto Alegre e vagas remotas
             </p>
           </div>
           <div className={styles.stats}>
             <div className={styles.stat}>
               <strong>{vagas.length}</strong>
-              <span>vagas abertas</span>
+              <span>estágios abertos</span>
             </div>
             <div className={styles.stat}>
-              <strong>{contagem.n.entrada ?? 0}</strong>
-              <span>nível de entrada</span>
+              <strong>{(contagem.l.canoas ?? 0) + (contagem.l.regiao ?? 0)}</strong>
+              <span>na região</span>
             </div>
             <div className={styles.stat}>
-              <strong>{contagem.l.caxias ?? 0}</strong>
-              <span>em Caxias</span>
+              <strong>{contagem.l.remoto ?? 0}</strong>
+              <span>remotos</span>
             </div>
           </div>
         </div>
@@ -154,29 +173,25 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
 
       <main className={styles.main}>
         <div className={styles.controls}>
-          <div className={styles.filterRow}>
-            <div className={styles.chipLine}>
-              <span className={styles.chipLabel}>Nível</span>
-              <div className={styles.chips}>
-                <button
-                  className={!nivel ? styles.chipOn : styles.chip}
-                  onClick={() => setNivel(null)}
-                >
-                  Todos
-                </button>
-                {(['entrada', 'pleno'] as Nivel[]).map((n) => (
-                  <button
-                    key={n}
-                    className={nivel === n ? styles.chipOn : styles.chip}
-                    onClick={() => setNivel(nivel === n ? null : n)}
-                  >
-                    {NIVEL_NOME[n]}
-                    <span className={styles.chipCount}>{contagem.n[n] ?? 0}</span>
-                  </button>
-                ))}
-              </div>
+          <div className={styles.searchRow}>
+            <div className={styles.searchWrap}>
+              <span className={styles.searchIcon}>
+                <IconSearch />
+              </span>
+              <input
+                className={styles.search}
+                placeholder="Cargo ou empresa..."
+                value={busca}
+                onChange={(e) => {
+                  setBusca(e.target.value)
+                  setVisiveis(PAGINA)
+                }}
+                aria-label="Buscar estágio"
+              />
             </div>
+          </div>
 
+          <div className={styles.filterRow}>
             <div className={styles.chipLine}>
               <span className={styles.chipLabel}>Local</span>
               <div className={styles.chips}>
@@ -186,7 +201,7 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
                 >
                   Todos
                 </button>
-                {(['caxias', 'remoto'] as Local[]).map((l) => (
+                {(['canoas', 'regiao', 'remoto'] as Local[]).map((l) => (
                   <button
                     key={l}
                     className={local === l ? styles.chipOn : styles.chip}
@@ -220,25 +235,60 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
                 ))}
               </div>
             </div>
+
+            <div className={styles.chipLine}>
+              <span className={styles.chipLabel}>Fonte</span>
+              <div className={styles.chips}>
+                <button
+                  className={!fonte ? styles.chipOn : styles.chip}
+                  onClick={() => setFonte(null)}
+                >
+                  Todas
+                </button>
+                {fontes.map(([f, n]) => (
+                  <button
+                    key={f}
+                    className={fonte === f ? styles.chipOn : styles.chip}
+                    onClick={() => setFonte(fonte === f ? null : f)}
+                  >
+                    {FONTES[f] ?? f}
+                    <span className={styles.chipCount}>{n}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.rightControls}>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={soComeco}
+                  onChange={(e) => setSoComeco(e.target.checked)}
+                />
+                Começo de curso ({contagem.comeco})
+              </label>
+            </div>
           </div>
         </div>
 
         <div className={styles.resultBar}>
           <span>
-            Mostrando <strong>{filtradas.length}</strong> de {vagas.length} vagas
+            Mostrando <strong>{filtradas.length}</strong> de {vagas.length} estágios
           </span>
           {temFiltro && (
-            <button className={styles.clear} onClick={limpar}>
-              Limpar filtros
-            </button>
+            <span className={styles.barActions}>
+              <button className={styles.clear} onClick={limpar}>
+                Limpar filtros
+              </button>
+            </span>
           )}
         </div>
 
         {filtradas.length === 0 ? (
           <div className={styles.empty}>
-            <p>Nenhuma vaga com esses filtros.</p>
+            <p>Nenhum estágio com esses filtros.</p>
             {temFiltro && (
-              <button className={styles.chipOn} onClick={limpar}>
+              <button className={styles.clear} onClick={limpar}>
                 Limpar filtros
               </button>
             )}
@@ -247,31 +297,44 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
           <>
             <ul className={styles.grid}>
               {mostradas.map((v) => {
-                const entrada = nivelDe(v) === 'entrada'
+                const comeco = COMECO.test(v.titulo)
                 return (
                   <li
                     key={v.id}
-                    className={entrada ? `${styles.card} ${styles.cardNova}` : styles.card}
+                    className={comeco ? `${styles.card} ${styles.cardNova}` : styles.card}
                   >
                     <div className={styles.cardHead}>
                       <span className={styles.badges}>
-                        <span className={`${styles.badge} ${styles.f_gupy}`}>
-                          {areaDe(v)}
-                        </span>
+                        <a
+                          className={`${styles.badge} ${styles['f_' + v.fonte.replace('.', '_')]}`}
+                          href={v.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {FONTES[v.fonte] ?? v.fonte}
+                        </a>
+                        <span className={styles.badge}>{areaDe(v)}</span>
                       </span>
                       <span className={styles.headTags}>
-                        {entrada && <span className={styles.nova}>Nível de entrada</span>}
+                        {comeco && <span className={styles.nova}>Começo de curso</span>}
                       </span>
                     </div>
-                    <a
-                      className={styles.cardTitle}
-                      href={v.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {v.titulo}
-                    </a>
-                    {v.empresa && <p className={styles.empresa}>{v.empresa}</p>}
+
+                    <div className={styles.cardCorpo}>
+                      <LogoEmpresa empresa={v.empresa} logoUrl={v.logo_url} />
+                      <div className={styles.cardTexto}>
+                        <a
+                          className={styles.cardTitle}
+                          href={v.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {v.titulo}
+                        </a>
+                        {v.empresa && <p className={styles.empresa}>{v.empresa}</p>}
+                      </div>
+                    </div>
+
                     <div className={styles.meta}>
                       {v.cidade && (
                         <span className={styles.metaItem}>
@@ -283,12 +346,18 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
                           <IconMoney /> {v.salario}
                         </span>
                       )}
+                      {rotuloTipo(v.tipo) && (
+                        <span className={styles.metaItem}>
+                          <IconWork /> {rotuloTipo(v.tipo)}
+                        </span>
+                      )}
                       {fmtData(v.publicada_em) && (
                         <span className={styles.metaItem}>
                           <IconClock /> {fmtData(v.publicada_em)}
                         </span>
                       )}
                     </div>
+
                     <div className={styles.cardFoot}>
                       <a
                         className={styles.apply}
@@ -309,7 +378,7 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
                   className={styles.loadMore}
                   onClick={() => setVisiveis((n) => n + PAGINA)}
                 >
-                  Carregar mais vagas ({filtradas.length - visiveis} restantes)
+                  Carregar mais ({filtradas.length - visiveis} restantes)
                 </button>
               </div>
             )}
@@ -319,8 +388,9 @@ export default function SimuladoBoard({ vagas }: { vagas: Vaga[] }) {
 
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          Simulação com vagas públicas reais da Gupy, em Caxias do Sul e remotas.
-          Exclui posições sênior, de especialista e de gestão. Não afiliado às plataformas.
+          Estágios de tecnologia em Canoas, na região metropolitana de Porto Alegre e
+          remotos, de Gupy, LinkedIn, Vagas.com e Indeed. Coleta diária. Não afiliado
+          às plataformas.
         </div>
       </footer>
     </div>

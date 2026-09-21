@@ -558,7 +558,7 @@ export default function VagasBoard({
             Sincronizar
           </button>
           <a className={styles.navLink} href="/simulado-ads">
-            Simulado ADS
+            Estágio ADS em Canoas
           </a>
         </div>
       </div>
