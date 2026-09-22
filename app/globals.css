@@ -20,6 +20,8 @@
   --f-vagas: #97304c;
   --f-jobfy: #8a5512;
   --f-indeed: #1f5a6e;
+  --f-iel: #2f6b4f;
+  --f-nube: #8a3a6b;
 
   --font-ui: var(--font-sans), system-ui, sans-serif;
   --font-titulo: var(--font-serif), Georgia, serif;
@@ -58,6 +60,8 @@
     --f-vagas: #dc9aab;
     --f-jobfy: #d8ab6e;
     --f-indeed: #8fbecb;
+    --f-iel: #8cc2a6;
+    --f-nube: #d59cbe;
   }
 }
 

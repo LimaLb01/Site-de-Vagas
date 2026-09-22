@@ -457,6 +457,14 @@
   color: var(--f-indeed);
 }
 
+.f_iel {
+  color: var(--f-iel);
+}
+
+.f_nube {
+  color: var(--f-nube);
+}
+
 .headTags {
   margin-left: auto;
   display: flex;
