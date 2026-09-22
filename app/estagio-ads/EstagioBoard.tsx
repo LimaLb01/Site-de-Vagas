@@ -1,12 +1,22 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { FONTES, rotuloTipo, type Vaga } from '@/lib/vagas'
+import {
+  FONTES,
+  PATH_ESTAGIO,
+  PATH_EXEC_ESTAGIO,
+  fetchAoVivo,
+  fetchAoVivoTodas,
+  rotuloTipo,
+  type Execucao,
+  type Vaga,
+} from '@/lib/vagas'
 import LogoEmpresa from '../LogoEmpresa'
 import styles from '../page.module.css'
 
 const PAGINA = 30
+const INTERVALO_MS = 60 * 1000
 
 // título que sugere vaga para quem está começando o curso
 const COMECO =
@@ -44,6 +54,23 @@ function fmtData(iso: string | null): string | null {
   return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 }
 
+function fmtHora(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  })
+}
+
+function haQuantoTempo(ms: number | null, agora: number): string {
+  if (!ms) return 'agora'
+  const s = Math.max(0, Math.round((agora - ms) / 1000))
+  if (s < 60) return 'há instantes'
+  const m = Math.round(s / 60)
+  if (m < 60) return `há ${m} min`
+  return `há ${Math.round(m / 60)} h`
+}
+
 const svg = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'currentColor' } as const
 const IconPin = () => (
   <svg {...svg} aria-hidden>
@@ -71,13 +98,85 @@ const IconSearch = () => (
   </svg>
 )
 
-export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
+export default function EstagioBoard({
+  vagas: vagasIniciais,
+  ultima: ultimaInicial,
+}: {
+  vagas: Vaga[]
+  ultima: Execucao | null
+}) {
+  const [vagas, setVagas] = useState<Vaga[]>(vagasIniciais)
+  const [ultima, setUltima] = useState<Execucao | null>(ultimaInicial)
+  const [atualizando, setAtualizando] = useState(false)
+  const [checadoEm, setChecadoEm] = useState<number | null>(null)
+  const [agora, setAgora] = useState(() => Date.now())
+  const [erroRede, setErroRede] = useState(false)
+  const buscandoRef = useRef(false)
   const [busca, setBusca] = useState('')
   const [local, setLocal] = useState<string | null>(null)
   const [area, setArea] = useState<string | null>(null)
   const [fonte, setFonte] = useState<string | null>(null)
   const [soComeco, setSoComeco] = useState(false)
   const [visiveis, setVisiveis] = useState(PAGINA)
+
+  // mesma checagem ao vivo do painel de Caxias: a página é estática, então a
+  // lista é conferida direto no banco de tempos em tempos
+  const atualizar = useCallback(async (manual = false) => {
+    if (!manual && document.hidden) return
+    if (buscandoRef.current) return
+    buscandoRef.current = true
+    setAtualizando(true)
+    try {
+      const [novas, exec] = await Promise.all([
+        fetchAoVivoTodas<Vaga>(PATH_ESTAGIO),
+        fetchAoVivo<{ executada_em: string; encontradas: number; inseridas: number }>(
+          PATH_EXEC_ESTAGIO,
+        ),
+      ])
+      if (novas) {
+        setVagas(novas)
+        setErroRede(false)
+      } else {
+        setErroRede(true)
+      }
+      const u = exec?.[0]
+      if (u) {
+        setUltima({
+          executada_em: u.executada_em,
+          novas_vagas: u.inseridas,
+          total_encontradas: u.encontradas,
+        })
+      }
+      setChecadoEm(Date.now())
+    } catch {
+      setErroRede(true)
+    } finally {
+      buscandoRef.current = false
+      setAtualizando(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => atualizar(), INTERVALO_MS)
+    const aoVoltar = () => {
+      if (!document.hidden) atualizar()
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+    window.addEventListener('focus', aoVoltar)
+    window.addEventListener('online', aoVoltar)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', aoVoltar)
+      window.removeEventListener('focus', aoVoltar)
+      window.removeEventListener('online', aoVoltar)
+    }
+  }, [atualizar])
+
+  // relógio do "verificado há X"
+  useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 15000)
+    return () => clearInterval(id)
+  }, [])
 
   const contagem = useMemo(() => {
     const l: Record<string, number> = {}
@@ -181,6 +280,30 @@ export default function EstagioBoard({ vagas }: { vagas: Vaga[] }) {
               <strong>{contagem.l.Remoto ?? 0}</strong>
               <span>remotos</span>
             </div>
+            <span className={styles.atualizado}>
+              {ultima && (
+                <>
+                  Coleta de {fmtHora(ultima.executada_em)}, {fmtData(ultima.executada_em)}
+                  <br />
+                </>
+              )}
+              <span className={styles.checagem}>
+                <span className={atualizando ? styles.pulseOn : styles.pulse} aria-hidden />
+                {erroRede
+                  ? 'sem conexão — tentando'
+                  : atualizando
+                    ? 'verificando…'
+                    : `verificado ${haQuantoTempo(checadoEm, agora)}`}
+                <button
+                  className={styles.refresh}
+                  onClick={() => atualizar(true)}
+                  disabled={atualizando}
+                  title="Conferir estágios agora"
+                >
+                  atualizar
+                </button>
+              </span>
+            </span>
           </div>
         </div>
       </header>

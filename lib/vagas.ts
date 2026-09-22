@@ -115,6 +115,25 @@ export function getUltimaExecucao() {
 export const PATH_EXECUCAO =
   'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1'
 
+// última rodada do coletor de estágios (a página /estagio-ads mostra a hora)
+export const PATH_EXEC_ESTAGIO =
+  'execucoes_estagio?select=executada_em,encontradas,inseridas&order=executada_em.desc&limit=1'
+
+export async function getUltimaEstagio(): Promise<Execucao | null> {
+  const linhas = await supabaseGet<{
+    executada_em: string
+    encontradas: number
+    inseridas: number
+  }>(PATH_EXEC_ESTAGIO)
+  const u = linhas[0]
+  if (!u) return null
+  return {
+    executada_em: u.executada_em,
+    novas_vagas: u.inseridas,
+    total_encontradas: u.encontradas,
+  }
+}
+
 /* ---------- sincronização entre dispositivos ----------
    Sem login: um código aleatório longo identifica o perfil. Quem tem o código
    (celular e computador) compartilha o mesmo histórico de vistas/candidaturas. */
