@@ -26,6 +26,20 @@ export interface Execucao {
   total_encontradas: number
 }
 
+/* Chave de uma vaga no histórico de vistas/candidaturas. É a mesma nas duas
+   abas e tem um gêmeo em SQL (public.chave_vaga), usado pela busca de vagas
+   candidatadas que já encerraram — mexer aqui pede mexer lá. */
+export function chaveVaga(titulo: string, empresa: string | null): string {
+  const norm = (s: string | null) =>
+    (s ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+  return `${norm(titulo)}|${norm(empresa)}`
+}
+
 export const FONTES: Record<string, string> = {
   gupy: 'Gupy',
   linkedin: 'LinkedIn',

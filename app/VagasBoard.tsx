@@ -8,20 +8,16 @@ import {
   fetchAoVivo,
   fetchAoVivoTodas,
   buscarCandidatadas,
+  chaveVaga,
   rotuloTipo,
-  novoCodigo,
-  lerPrefs,
-  salvarPrefs,
   type Vaga,
   type Execucao,
-  type Prefs,
 } from '@/lib/vagas'
 import LogoEmpresa from './LogoEmpresa'
+import PainelSync from './PainelSync'
+import { usePrefs } from './usePrefs'
 import styles from './page.module.css'
 
-const LS_CAND = 'vagas_candidatadas_v1'
-const LS_VISTAS = 'vagas_vistas_v1'
-const LS_CODIGO = 'vagas_codigo_sync_v1'
 const PAGINA = 30
 
 const CARGOS: Array<{ id: string; nome: string }> = [
@@ -58,20 +54,12 @@ interface VagaMerged {
   encerrada: boolean
 }
 
-function norm(s: string | null): string {
-  return (s ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
 
 // junta a mesma vaga vinda de fontes diferentes num card só
 function mesclar(vagas: Vaga[]): VagaMerged[] {
   const mapa = new Map<string, VagaMerged>()
   for (const v of vagas) {
-    const key = `${norm(v.titulo)}|${norm(v.empresa)}`
+    const key = chaveVaga(v.titulo, v.empresa)
     const ex = mapa.get(key)
     if (!ex) {
       mapa.set(key, {
@@ -210,15 +198,23 @@ export default function VagasBoard({
   const [soCand, setSoCand] = useState(false)
   const [vagasCand, setVagasCand] = useState<Vaga[]>([])
   const [ordem, setOrdem] = useState<Ordem>('recentes')
-  const [candidatadas, setCandidatadas] = useState<Set<string>>(new Set())
-  const [vistas, setVistas] = useState<Set<string> | null>(null)
-  const [codigo, setCodigo] = useState<string | null>(null)
   const [mostrarSync, setMostrarSync] = useState(false)
-  const [codigoDigitado, setCodigoDigitado] = useState('')
-  const [statusSync, setStatusSync] = useState<string | null>(null)
   const [visiveis, setVisiveis] = useState(PAGINA)
 
   const itens = useMemo(() => mesclar(vagas), [vagas])
+
+  const {
+    vistas,
+    candidatadas,
+    codigo,
+    puxarPrefs,
+    marcarVista,
+    toggleVista,
+    marcarTodasVistas,
+    desmarcarTodasVistas,
+    toggleCand,
+    usarCodigo,
+  } = usePrefs(itens.map((i) => i.key))
 
   // busca a lista mais recente. `manual` ignora a checagem de aba oculta.
   const atualizar = useCallback(async (manual = false) => {
@@ -246,32 +242,6 @@ export default function VagasBoard({
       setAtualizando(false)
     }
   }, [])
-
-  // Sincronização entre aparelhos. O localStorage é isolado por navegador, então
-  // o histórico só cruza celular e computador pelo código: o servidor guarda a
-  // versão boa, cada marcação sobe na hora e os outros aparelhos puxam de volta
-  // no mesmo intervalo da lista. Vence sempre a gravação mais recente.
-  const codigoRef = useRef<string | null>(null)
-  const carimboRef = useRef('')
-
-  const aplicarPrefs = useCallback((p: Prefs) => {
-    setVistas(new Set(p.vistas))
-    setCandidatadas(new Set(p.candidatadas))
-    try {
-      localStorage.setItem(LS_VISTAS, JSON.stringify(p.vistas))
-      localStorage.setItem(LS_CAND, JSON.stringify(p.candidatadas))
-    } catch {}
-    if (p.atualizado_em) carimboRef.current = p.atualizado_em
-  }, [])
-
-  const puxarPrefs = useCallback(async () => {
-    const cod = codigoRef.current
-    if (!cod) return
-    const remoto = await lerPrefs(cod)
-    if (!remoto?.atualizado_em) return
-    if (remoto.atualizado_em <= carimboRef.current) return
-    aplicarPrefs(remoto)
-  }, [aplicarPrefs])
 
   // mantém lista e marcações frescas: no intervalo, ao voltar para a aba e ao reconectar
   useEffect(() => {
@@ -301,140 +271,8 @@ export default function VagasBoard({
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    let cod: string | null = null
-    try {
-      // link de pareamento: /?sync=CODIGO passa este aparelho para o mesmo perfil
-      const url = new URL(window.location.href)
-      const doLink = url.searchParams.get('sync')
-      if (doLink) {
-        localStorage.setItem(LS_CODIGO, doLink)
-        url.searchParams.delete('sync')
-        window.history.replaceState(null, '', url.pathname + url.search)
-      }
-      cod = localStorage.getItem(LS_CODIGO)
-      if (!cod) {
-        cod = novoCodigo()
-        localStorage.setItem(LS_CODIGO, cod)
-      }
-    } catch {}
-    codigoRef.current = cod
-    setCodigo(cod)
-
-    const salvo = (chave: string): string[] | null => {
-      try {
-        const raw = localStorage.getItem(chave)
-        return raw ? (JSON.parse(raw) as string[]) : null
-      } catch {
-        return null
-      }
-    }
-    const candLocal = salvo(LS_CAND)
-    const vistasLocal = salvo(LS_VISTAS)
-    if (candLocal) setCandidatadas(new Set(candLocal))
-
-    void (async () => {
-      const remoto = cod ? await lerPrefs(cod) : null
-      // sem nada salvo em lugar nenhum: tudo que já está no ar entra como visto,
-      // assim só o que chegar depois é destacado como novo
-      const base: Prefs = remoto ?? {
-        vistas: vistasLocal ?? itens.map((i) => i.key),
-        candidatadas: candLocal ?? [],
-      }
-      // descarta vistas de vagas que saíram do ar (candidatadas ficam, podem
-      // estar encerradas); lista vazia significa falha de rede, então não poda
-      const atuais = new Set(itens.map((i) => i.key))
-      const vistas = itens.length > 0 ? base.vistas.filter((k) => atuais.has(k)) : base.vistas
-      aplicarPrefs({ ...base, vistas })
-      if (!cod) return
-      if (!remoto || vistas.length !== base.vistas.length) {
-        const carimbo = await salvarPrefs(cod, { vistas, candidatadas: base.candidatadas })
-        if (carimbo) carimboRef.current = carimbo
-      }
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // troca o aparelho para um código existente e puxa o histórico de lá
-  const usarCodigo = async () => {
-    const cod = codigoDigitado.trim()
-    if (cod.length < 12) {
-      setStatusSync('Código inválido.')
-      return
-    }
-    setStatusSync('Buscando…')
-    const remoto = await lerPrefs(cod)
-    if (!remoto) {
-      setStatusSync('Código não encontrado.')
-      return
-    }
-    try {
-      localStorage.setItem(LS_CODIGO, cod)
-    } catch {}
-    codigoRef.current = cod
-    setCodigo(cod)
-    aplicarPrefs(remoto)
-    setStatusSync(
-      `Sincronizado: ${remoto.vistas.length} vistas, ${remoto.candidatadas.length} candidaturas.`,
-    )
-  }
-
-  // envia para o servidor sem travar a interface; o carimbo otimista impede que
-  // uma puxada em andamento desfaça a marcação recém-feita aqui
-  const enviarPrefs = (v: Set<string>, c: Set<string>) => {
-    const cod = codigoRef.current
-    if (!cod) return
-    carimboRef.current = new Date().toISOString()
-    void salvarPrefs(cod, { vistas: [...v], candidatadas: [...c] }).then((carimbo) => {
-      if (carimbo) carimboRef.current = carimbo
-    })
-  }
-
-  const gravaVistas = (s: Set<string>) => {
-    setVistas(s)
-    try {
-      localStorage.setItem(LS_VISTAS, JSON.stringify([...s]))
-    } catch {}
-    enviarPrefs(s, candidatadas)
-  }
-
-  const marcarVista = (key: string) => {
-    if (!vistas || vistas.has(key)) return
-    const n = new Set(vistas)
-    n.add(key)
-    gravaVistas(n)
-  }
-
-  const marcarTodasVistas = () => {
-    gravaVistas(new Set(itens.map((i) => i.key)))
-  }
-
-  const desmarcarTodasVistas = () => {
-    gravaVistas(new Set())
-  }
-
-  const toggleVista = (key: string) => {
-    const n = new Set(vistas ?? [])
-    if (n.has(key)) n.delete(key)
-    else n.add(key)
-    gravaVistas(n)
-  }
-
-  // antes de carregar o localStorage, não marca nada como novo (evita piscar)
+  // antes de carregar o histórico, nada é "novo" (evita piscar)
   const naoVista = (v: VagaMerged) => (vistas ? !vistas.has(v.key) : false)
-
-  const toggleCand = (key: string) => {
-    setCandidatadas((prev) => {
-      const n = new Set(prev)
-      if (n.has(key)) n.delete(key)
-      else n.add(key)
-      try {
-        localStorage.setItem(LS_CAND, JSON.stringify([...n]))
-      } catch {}
-      enviarPrefs(vistas ?? new Set(), n)
-      return n
-    })
-  }
 
   const naoVistasCount = useMemo(
     () => (vistas ? itens.filter((i) => !vistas.has(i.key)).length : 0),
@@ -557,61 +395,13 @@ export default function VagasBoard({
           >
             Sincronizar
           </button>
-          <a className={styles.navLink} href="/simulado-ads">
+          <a className={styles.navLink} href="/estagio-ads">
             Estágio ADS em Canoas
           </a>
         </div>
       </div>
 
-      {mostrarSync && (
-        <div className={styles.syncPainel}>
-          <div className={styles.syncInner}>
-            <p className={styles.syncTexto}>
-              Abra este link uma vez no outro aparelho: os dois passam a usar o
-              mesmo histórico, e cada vaga marcada num lado aparece no outro em
-              até um minuto.
-            </p>
-            <div className={styles.syncLinha}>
-              <code className={styles.syncCodigo}>{codigo ?? '…'}</code>
-              <button
-                className={styles.chipOn}
-                onClick={() => {
-                  if (!codigo) return
-                  void navigator.clipboard?.writeText(
-                    `${window.location.origin}/?sync=${codigo}`,
-                  )
-                  setStatusSync('Link copiado. Abra no outro aparelho.')
-                }}
-              >
-                Copiar link
-              </button>
-              <button
-                className={styles.chip}
-                onClick={() => {
-                  if (!codigo) return
-                  void navigator.clipboard?.writeText(codigo)
-                  setStatusSync('Código copiado.')
-                }}
-              >
-                Copiar código
-              </button>
-            </div>
-            <div className={styles.syncLinha}>
-              <input
-                className={styles.search}
-                placeholder="Ou cole aqui o código do outro aparelho"
-                value={codigoDigitado}
-                onChange={(e) => setCodigoDigitado(e.target.value)}
-                aria-label="Código de sincronização"
-              />
-              <button className={styles.chip} onClick={() => void usarCodigo()}>
-                Usar
-              </button>
-            </div>
-            {statusSync && <p className={styles.syncStatus}>{statusSync}</p>}
-          </div>
-        </div>
-      )}
+      {mostrarSync && <PainelSync codigo={codigo} usarCodigo={usarCodigo} />}
 
       <header className={styles.hero}>
         <div className={styles.heroInner}>
@@ -840,14 +630,14 @@ export default function VagasBoard({
           </span>
           <span className={styles.barActions}>
             {naoVistasCount > 0 && (
-              <button className={styles.clear} onClick={marcarTodasVistas}>
+              <button className={styles.clear} onClick={() => marcarTodasVistas(itens.map((i) => i.key))}>
                 Marcar todas como vistas
               </button>
             )}
             {vistas && vistas.size > 0 && (
               <button
                 className={styles.clear}
-                onClick={desmarcarTodasVistas}
+                onClick={() => desmarcarTodasVistas(itens.map((i) => i.key))}
                 title="Volta todas para não vistas, para revisar a lista inteira"
               >
                 Desmarcar todas

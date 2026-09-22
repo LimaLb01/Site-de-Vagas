@@ -6,6 +6,8 @@ import {
   FONTES,
   PATH_ESTAGIO,
   PATH_EXEC_ESTAGIO,
+  buscarCandidatadas,
+  chaveVaga,
   fetchAoVivo,
   fetchAoVivoTodas,
   rotuloTipo,
@@ -13,10 +15,14 @@ import {
   type Vaga,
 } from '@/lib/vagas'
 import LogoEmpresa from '../LogoEmpresa'
+import PainelSync from '../PainelSync'
+import { usePrefs } from '../usePrefs'
 import styles from '../page.module.css'
 
 const PAGINA = 30
 const INTERVALO_MS = 60 * 1000
+
+type Ordem = 'recentes' | 'antigas' | 'az' | 'salario'
 
 // título que sugere vaga para quem está começando o curso
 const COMECO =
@@ -45,6 +51,13 @@ function areaDe(v: Vaga): string {
   if (/desenvolv|program|front|back|full ?stack|software|\bdev\b|web|mobile|android|ios\b/.test(t))
     return 'Desenvolvimento'
   return 'Sistemas / Outros'
+}
+
+function salarioNum(v: Vaga): number {
+  if (!v.salario) return -1
+  const m = String(v.salario).match(/[\d.]+(?:,\d{2})?/)
+  if (!m) return -1
+  return parseFloat(m[0].replace(/\./g, '').replace(',', '.')) || -1
 }
 
 function fmtData(iso: string | null): string | null {
@@ -117,10 +130,31 @@ export default function EstagioBoard({
   const [area, setArea] = useState<string | null>(null)
   const [fonte, setFonte] = useState<string | null>(null)
   const [soComeco, setSoComeco] = useState(false)
+  const [soNovas, setSoNovas] = useState(false)
+  const [soComSalario, setSoComSalario] = useState(false)
+  const [ocultarCand, setOcultarCand] = useState(false)
+  const [soCand, setSoCand] = useState(false)
+  const [vagasCand, setVagasCand] = useState<Vaga[]>([])
+  const [ordem, setOrdem] = useState<Ordem>('recentes')
+  const [mostrarSync, setMostrarSync] = useState(false)
   const [visiveis, setVisiveis] = useState(PAGINA)
 
-  // mesma checagem ao vivo do painel de Caxias: a página é estática, então a
-  // lista é conferida direto no banco de tempos em tempos
+  const chave = (v: Vaga) => chaveVaga(v.titulo, v.empresa)
+
+  const {
+    vistas,
+    candidatadas,
+    codigo,
+    puxarPrefs,
+    marcarVista,
+    toggleVista,
+    marcarTodasVistas,
+    desmarcarTodasVistas,
+    toggleCand,
+    usarCodigo,
+  } = usePrefs(vagas.map(chave))
+
+  // a página é estática, então a lista é reconferida no banco de tempos em tempos
   const atualizar = useCallback(async (manual = false) => {
     if (!manual && document.hidden) return
     if (buscandoRef.current) return
@@ -157,9 +191,14 @@ export default function EstagioBoard({
   }, [])
 
   useEffect(() => {
-    const id = setInterval(() => atualizar(), INTERVALO_MS)
+    const id = setInterval(() => {
+      atualizar()
+      void puxarPrefs()
+    }, INTERVALO_MS)
     const aoVoltar = () => {
-      if (!document.hidden) atualizar()
+      if (document.hidden) return
+      atualizar()
+      void puxarPrefs()
     }
     document.addEventListener('visibilitychange', aoVoltar)
     window.addEventListener('focus', aoVoltar)
@@ -170,13 +209,43 @@ export default function EstagioBoard({
       window.removeEventListener('focus', aoVoltar)
       window.removeEventListener('online', aoVoltar)
     }
-  }, [atualizar])
+  }, [atualizar, puxarPrefs])
 
   // relógio do "verificado há X"
   useEffect(() => {
     const id = setInterval(() => setAgora(Date.now()), 15000)
     return () => clearInterval(id)
   }, [])
+
+  // "Só candidatadas" também mostra os estágios que já encerraram, que a página não carrega
+  useEffect(() => {
+    if (!soCand) return
+    if (candidatadas.size === 0) {
+      setVagasCand([])
+      return
+    }
+    let cancelado = false
+    buscarCandidatadas([...candidatadas]).then((r) => {
+      if (!cancelado && r) setVagasCand(r.filter((v) => v.termo_busca === 'estagio-ads'))
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [soCand, candidatadas])
+
+  const lista = useMemo(() => {
+    if (!soCand) return vagas
+    const mapa = new Map<string, Vaga>()
+    for (const v of [...vagas, ...vagasCand]) mapa.set(`${v.fonte}|${v.id}`, v)
+    return [...mapa.values()]
+  }, [soCand, vagas, vagasCand])
+
+  const naoVista = (v: Vaga) => (vistas ? !vistas.has(chave(v)) : false)
+
+  const naoVistasCount = useMemo(
+    () => (vistas ? vagas.filter((v) => !vistas.has(chave(v))).length : 0),
+    [vagas, vistas],
+  )
 
   const contagem = useMemo(() => {
     const l: Record<string, number> = {}
@@ -214,35 +283,56 @@ export default function EstagioBoard({
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
-    return vagas
-      .filter((v) => {
-        if (local && cidadeDe(v) !== local) return false
-        if (area && areaDe(v) !== area) return false
-        if (fonte && v.fonte !== fonte) return false
-        if (soComeco && !COMECO.test(v.titulo)) return false
-        if (q && !`${v.titulo} ${v.empresa ?? ''}`.toLowerCase().includes(q)) return false
-        return true
-      })
-      .sort((a, b) => {
-        // perto primeiro: Canoas, depois as outras cidades, depois remoto
-        const peso = (v: Vaga) => {
-          const c = cidadeDe(v)
-          return c === 'Canoas' ? 0 : c === 'Remoto' ? 2 : 1
-        }
-        if (peso(a) !== peso(b)) return peso(a) - peso(b)
-        return (b.publicada_em ?? b.capturada_em).localeCompare(a.publicada_em ?? a.capturada_em)
-      })
-  }, [vagas, busca, local, area, fonte, soComeco])
+    const r = lista.filter((v) => {
+      const k = chave(v)
+      if (soCand && !candidatadas.has(k)) return false
+      if (local && cidadeDe(v) !== local) return false
+      if (area && areaDe(v) !== area) return false
+      if (fonte && v.fonte !== fonte) return false
+      if (soComeco && !COMECO.test(v.titulo)) return false
+      if (soNovas && !naoVista(v)) return false
+      if (soComSalario && !v.salario) return false
+      if (ocultarCand && candidatadas.has(k)) return false
+      if (q && !`${v.titulo} ${v.empresa ?? ''} ${v.cidade ?? ''}`.toLowerCase().includes(q)) {
+        return false
+      }
+      return true
+    })
+    return [...r].sort((a, b) => {
+      if (ordem === 'az') return a.titulo.localeCompare(b.titulo, 'pt-BR')
+      if (ordem === 'salario') return salarioNum(b) - salarioNum(a)
+      // perto primeiro: Canoas, depois as outras cidades, depois remoto
+      const peso = (v: Vaga) => {
+        const c = cidadeDe(v)
+        return c === 'Canoas' ? 0 : c === 'Remoto' ? 2 : 1
+      }
+      if (ordem === 'recentes' && peso(a) !== peso(b)) return peso(a) - peso(b)
+      const ta = new Date(a.publicada_em ?? a.capturada_em).getTime()
+      const tb = new Date(b.publicada_em ?? b.capturada_em).getTime()
+      return ordem === 'antigas' ? ta - tb : tb - ta
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lista, busca, local, area, fonte, soComeco, soNovas, soComSalario, ocultarCand, soCand, candidatadas, vistas, ordem])
+
+  useEffect(() => {
+    setVisiveis(PAGINA)
+  }, [busca, local, area, fonte, soComeco, soNovas, soComSalario, ocultarCand, soCand, ordem])
 
   const mostradas = filtradas.slice(0, visiveis)
-  const temFiltro = Boolean(local || area || fonte || soComeco || busca)
+  const encerradasNaLista = soCand ? filtradas.filter((v) => v.ativa === false).length : 0
+  const temFiltro = Boolean(
+    busca || local || area || fonte || soComeco || soNovas || soComSalario || ocultarCand || soCand,
+  )
   const limpar = () => {
     setBusca('')
     setLocal(null)
     setArea(null)
     setFonte(null)
     setSoComeco(false)
-    setVisiveis(PAGINA)
+    setSoNovas(false)
+    setSoComSalario(false)
+    setOcultarCand(false)
+    setSoCand(false)
   }
 
   return (
@@ -253,11 +343,20 @@ export default function EstagioBoard({
             VC
           </span>
           <span className={styles.brand}>Vagas Caxias do Sul</span>
+          <button
+            className={styles.navLink}
+            onClick={() => setMostrarSync((v) => !v)}
+            title="Usar o mesmo histórico no celular e no computador"
+          >
+            Sincronizar
+          </button>
           <Link href="/" className={styles.navLink}>
             Painel de Caxias
           </Link>
         </div>
       </div>
+
+      {mostrarSync && <PainelSync codigo={codigo} usarCodigo={usarCodigo} />}
 
       <header className={styles.hero}>
         <div className={styles.heroInner}>
@@ -273,8 +372,8 @@ export default function EstagioBoard({
               <span>estágios abertos</span>
             </div>
             <div className={styles.stat}>
-              <strong>{vagas.length - (contagem.l.Remoto ?? 0)}</strong>
-              <span>na região</span>
+              <strong>{naoVistasCount}</strong>
+              <span>ainda não vistos</span>
             </div>
             <div className={styles.stat}>
               <strong>{contagem.l.Remoto ?? 0}</strong>
@@ -319,13 +418,21 @@ export default function EstagioBoard({
                 className={styles.search}
                 placeholder="Cargo ou empresa..."
                 value={busca}
-                onChange={(e) => {
-                  setBusca(e.target.value)
-                  setVisiveis(PAGINA)
-                }}
+                onChange={(e) => setBusca(e.target.value)}
                 aria-label="Buscar estágio"
               />
             </div>
+            <select
+              className={styles.select}
+              value={ordem}
+              onChange={(e) => setOrdem(e.target.value as Ordem)}
+              aria-label="Ordenar"
+            >
+              <option value="recentes">Mais recentes</option>
+              <option value="antigas">Mais antigas</option>
+              <option value="az">Título A-Z</option>
+              <option value="salario">Maior bolsa</option>
+            </select>
           </div>
 
           <div className={styles.filterRow}>
@@ -404,28 +511,84 @@ export default function EstagioBoard({
                 />
                 Começo de curso ({contagem.comeco})
               </label>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={soNovas}
+                  onChange={(e) => setSoNovas(e.target.checked)}
+                />
+                Só não vistas
+              </label>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={soComSalario}
+                  onChange={(e) => setSoComSalario(e.target.checked)}
+                />
+                Só com bolsa
+              </label>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={ocultarCand}
+                  onChange={(e) => setOcultarCand(e.target.checked)}
+                />
+                Ocultar candidatadas
+              </label>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={soCand}
+                  onChange={(e) => setSoCand(e.target.checked)}
+                />
+                Só candidatadas ({candidatadas.size})
+              </label>
             </div>
           </div>
         </div>
 
         <div className={styles.resultBar}>
           <span>
-            Mostrando <strong>{filtradas.length}</strong> de {vagas.length} estágios
+            Mostrando <strong>{filtradas.length}</strong> de{' '}
+            {soCand ? `${candidatadas.size} candidatadas` : `${vagas.length} estágios`}
+            {encerradasNaLista > 0 && (
+              <span className={styles.naoVistasInfo}>
+                {', '}
+                {encerradasNaLista} já {encerradasNaLista === 1 ? 'encerrada' : 'encerradas'}
+              </span>
+            )}
+            {naoVistasCount > 0 && (
+              <span className={styles.naoVistasInfo}>, {naoVistasCount} não vistas</span>
+            )}
           </span>
-          {temFiltro && (
-            <span className={styles.barActions}>
+          <span className={styles.barActions}>
+            {naoVistasCount > 0 && (
+              <button className={styles.clear} onClick={() => marcarTodasVistas(vagas.map(chave))}>
+                Marcar todas como vistas
+              </button>
+            )}
+            {vistas && vistas.size > 0 && (
+              <button
+                className={styles.clear}
+                onClick={() => desmarcarTodasVistas(vagas.map(chave))}
+                title="Volta todas para não vistas, para revisar a lista inteira"
+              >
+                Desmarcar todas
+              </button>
+            )}
+            {temFiltro && (
               <button className={styles.clear} onClick={limpar}>
                 Limpar filtros
               </button>
-            </span>
-          )}
+            )}
+          </span>
         </div>
 
         {filtradas.length === 0 ? (
           <div className={styles.empty}>
             <p>Nenhum estágio com esses filtros.</p>
             {temFiltro && (
-              <button className={styles.clear} onClick={limpar}>
+              <button className={styles.chipOn} onClick={limpar}>
                 Limpar filtros
               </button>
             )}
@@ -434,12 +597,21 @@ export default function EstagioBoard({
           <>
             <ul className={styles.grid}>
               {mostradas.map((v) => {
+                const k = chave(v)
+                const aplicada = candidatadas.has(k)
+                const nova = naoVista(v)
                 const comeco = COMECO.test(v.titulo)
+                const encerrada = v.ativa === false
+                const cls = [
+                  styles.card,
+                  encerrada && styles.cardEncerrada,
+                  aplicada && styles.cardAplicada,
+                  !aplicada && !encerrada && (nova || comeco) && styles.cardNova,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
                 return (
-                  <li
-                    key={v.id}
-                    className={comeco ? `${styles.card} ${styles.cardNova}` : styles.card}
-                  >
+                  <li key={v.id} className={cls}>
                     <div className={styles.cardHead}>
                       <span className={styles.badges}>
                         <a
@@ -447,13 +619,21 @@ export default function EstagioBoard({
                           href={v.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => marcarVista(k)}
                         >
                           {FONTES[v.fonte] ?? v.fonte}
                         </a>
                         <span className={styles.badge}>{areaDe(v)}</span>
                       </span>
                       <span className={styles.headTags}>
-                        {comeco && <span className={styles.nova}>Começo de curso</span>}
+                        {encerrada && <span className={styles.encerradaTag}>Encerrada</span>}
+                        {aplicada && <span className={styles.candTag}>Candidatada</span>}
+                        {comeco && !aplicada && (
+                          <span className={styles.nova}>Começo de curso</span>
+                        )}
+                        {nova && !aplicada && !comeco && (
+                          <span className={styles.nova}>Novo pra você</span>
+                        )}
                       </span>
                     </div>
 
@@ -465,6 +645,7 @@ export default function EstagioBoard({
                           href={v.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => marcarVista(k)}
                         >
                           {v.titulo}
                         </a>
@@ -501,9 +682,28 @@ export default function EstagioBoard({
                         href={v.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => marcarVista(k)}
                       >
                         Ver vaga
                       </a>
+                      <span className={styles.checks}>
+                        <label className={styles.candCheck}>
+                          <input
+                            type="checkbox"
+                            checked={!nova}
+                            onChange={() => toggleVista(k)}
+                          />
+                          Visualizada
+                        </label>
+                        <label className={styles.candCheck}>
+                          <input
+                            type="checkbox"
+                            checked={aplicada}
+                            onChange={() => toggleCand(k)}
+                          />
+                          Me candidatei
+                        </label>
+                      </span>
                     </div>
                   </li>
                 )
@@ -526,8 +726,8 @@ export default function EstagioBoard({
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
           Estágios de tecnologia em Canoas, na região metropolitana de Porto Alegre e
-          remotos, de Gupy, LinkedIn, Vagas.com e Indeed. Coleta diária. Não afiliado
-          às plataformas.
+          remotos, de Gupy, LinkedIn, Vagas.com, Jobfy e Indeed. Coleta diária. Não
+          afiliado às plataformas.
         </div>
       </footer>
     </div>
