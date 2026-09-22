@@ -310,19 +310,25 @@ export default function VagasBoard({
 
   // "Só candidatadas" também mostra as vagas que já encerraram, que o painel não carrega
   useEffect(() => {
-    if (!soCand) return
     if (candidatadas.size === 0) {
       setVagasCand([])
       return
     }
     let cancelado = false
     buscarCandidatadas([...candidatadas]).then((r) => {
-      if (!cancelado && r) setVagasCand(r)
+      // o histórico é compartilhado com a aba de estágios: aqui só entram as deste painel
+      if (!cancelado && r) setVagasCand(r.filter((v) => v.termo_busca !== 'estagio-ads'))
     })
     return () => {
       cancelado = true
     }
-  }, [soCand, candidatadas])
+  }, [candidatadas])
+
+  // quantas candidaturas são deste painel (as de estágio ficam na outra aba)
+  const candDaqui = useMemo(
+    () => new Set(vagasCand.map((v) => chaveVaga(v.titulo, v.empresa))).size,
+    [vagasCand],
+  )
 
   const itensComEncerradas = useMemo(
     () => (soCand ? mesclar([...vagas, ...vagasCand]) : itens),
@@ -609,7 +615,7 @@ export default function VagasBoard({
                     if (e.target.checked) setOcultarCand(false)
                   }}
                 />
-                Só candidatadas{candidatadas.size > 0 ? ` (${candidatadas.size})` : ''}
+                Só candidatadas{candDaqui > 0 ? ` (${candDaqui})` : ''}
               </label>
             </div>
           </div>
@@ -618,7 +624,7 @@ export default function VagasBoard({
         <div className={styles.resultBar}>
           <span>
             Mostrando <strong>{filtradas.length}</strong> de{' '}
-            {soCand ? `${candidatadas.size} candidatadas` : `${itens.length} vagas`}
+            {soCand ? `${candDaqui} candidatadas` : `${itens.length} vagas`}
             {encerradasNaLista > 0 && (
               <span className={styles.naoVistasInfo}>
                 {', '}{encerradasNaLista} já {encerradasNaLista === 1 ? 'encerrada' : 'encerradas'}

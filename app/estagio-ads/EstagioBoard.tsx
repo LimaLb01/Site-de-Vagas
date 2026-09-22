@@ -219,7 +219,6 @@ export default function EstagioBoard({
 
   // "Só candidatadas" também mostra os estágios que já encerraram, que a página não carrega
   useEffect(() => {
-    if (!soCand) return
     if (candidatadas.size === 0) {
       setVagasCand([])
       return
@@ -231,7 +230,7 @@ export default function EstagioBoard({
     return () => {
       cancelado = true
     }
-  }, [soCand, candidatadas])
+  }, [candidatadas])
 
   const lista = useMemo(() => {
     if (!soCand) return vagas
@@ -239,6 +238,9 @@ export default function EstagioBoard({
     for (const v of [...vagas, ...vagasCand]) mapa.set(`${v.fonte}|${v.id}`, v)
     return [...mapa.values()]
   }, [soCand, vagas, vagasCand])
+
+  // o histórico é o mesmo das duas abas: aqui só contam as candidaturas de estágio
+  const candDaqui = useMemo(() => new Set(vagasCand.map(chave)).size, [vagasCand])
 
   const naoVista = (v: Vaga) => (vistas ? !vistas.has(chave(v)) : false)
 
@@ -541,7 +543,7 @@ export default function EstagioBoard({
                   checked={soCand}
                   onChange={(e) => setSoCand(e.target.checked)}
                 />
-                Só candidatadas ({candidatadas.size})
+                Só candidatadas{candDaqui > 0 ? ` (${candDaqui})` : ''}
               </label>
             </div>
           </div>
@@ -550,7 +552,7 @@ export default function EstagioBoard({
         <div className={styles.resultBar}>
           <span>
             Mostrando <strong>{filtradas.length}</strong> de{' '}
-            {soCand ? `${candidatadas.size} candidatadas` : `${vagas.length} estágios`}
+            {soCand ? `${candDaqui} candidatadas` : `${vagas.length} estágios`}
             {encerradasNaLista > 0 && (
               <span className={styles.naoVistasInfo}>
                 {', '}
