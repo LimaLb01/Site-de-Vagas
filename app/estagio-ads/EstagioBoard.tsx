@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   FONTES,
+  INGLES_NOME,
   PATH_ESTAGIO,
   PATH_EXEC_ESTAGIO,
   buscarCandidatadas,
@@ -40,6 +41,11 @@ function cidadeDe(v: Vaga): string {
     .replace(/\s+e\s+regi[ãa]o$/i, '')
     .trim()
   return nome || 'Sem cidade'
+}
+
+// enquanto o enriquecedor não leu a descrição, o nível fica como desconhecido
+function inglesDe(v: Vaga): string {
+  return v.ingles ?? 'desconhecido'
 }
 
 function areaDe(v: Vaga): string {
@@ -105,6 +111,11 @@ const IconClock = () => (
     <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.6V6h-2v7.4l5 3 1-1.7-4-2.1z" />
   </svg>
 )
+const IconFala = () => (
+  <svg {...svg} aria-hidden>
+    <path d="M12 3c-4.97 0-9 3.13-9 7 0 1.9.98 3.62 2.56 4.88L5 21l4.6-2.3c.77.2 1.57.3 2.4.3 4.97 0 9-3.13 9-7s-4.03-9-9-9z" />
+  </svg>
+)
 const IconSearch = () => (
   <svg {...svg} aria-hidden>
     <path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z" />
@@ -129,6 +140,7 @@ export default function EstagioBoard({
   const [local, setLocal] = useState<string | null>(null)
   const [area, setArea] = useState<string | null>(null)
   const [fonte, setFonte] = useState<string | null>(null)
+  const [ingles, setIngles] = useState<string | null>(null)
   const [soComeco, setSoComeco] = useState(false)
   const [soNovas, setSoNovas] = useState(false)
   const [soComSalario, setSoComSalario] = useState(false)
@@ -253,14 +265,16 @@ export default function EstagioBoard({
     const l: Record<string, number> = {}
     const a: Record<string, number> = {}
     const f: Record<string, number> = {}
+    const i: Record<string, number> = {}
     let comeco = 0
     for (const v of vagas) {
       l[cidadeDe(v)] = (l[cidadeDe(v)] ?? 0) + 1
       a[areaDe(v)] = (a[areaDe(v)] ?? 0) + 1
       f[v.fonte] = (f[v.fonte] ?? 0) + 1
+      i[inglesDe(v)] = (i[inglesDe(v)] ?? 0) + 1
       if (COMECO.test(v.titulo)) comeco++
     }
-    return { l, a, f, comeco }
+    return { l, a, f, i, comeco }
   }, [vagas])
 
   // só entram cidades que têm vaga; remoto fica por último
@@ -283,6 +297,14 @@ export default function EstagioBoard({
     [contagem],
   )
 
+  // do mais fácil para o mais exigente, com o pendente no fim
+  const ORDEM_INGLES = ['nao_pede', 'basico', 'intermediario', 'avancado', 'mencionado', 'desconhecido']
+  const niveis = useMemo(
+    () =>
+      ORDEM_INGLES.filter((n) => contagem.i[n]).map((n) => [n, contagem.i[n]] as [string, number]),
+    [contagem],
+  )
+
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     const r = lista.filter((v) => {
@@ -291,6 +313,7 @@ export default function EstagioBoard({
       if (local && cidadeDe(v) !== local) return false
       if (area && areaDe(v) !== area) return false
       if (fonte && v.fonte !== fonte) return false
+      if (ingles && inglesDe(v) !== ingles) return false
       if (soComeco && !COMECO.test(v.titulo)) return false
       if (soNovas && !naoVista(v)) return false
       if (soComSalario && !v.salario) return false
@@ -314,22 +337,23 @@ export default function EstagioBoard({
       return ordem === 'antigas' ? ta - tb : tb - ta
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lista, busca, local, area, fonte, soComeco, soNovas, soComSalario, ocultarCand, soCand, candidatadas, vistas, ordem])
+  }, [lista, busca, local, area, fonte, ingles, soComeco, soNovas, soComSalario, ocultarCand, soCand, candidatadas, vistas, ordem])
 
   useEffect(() => {
     setVisiveis(PAGINA)
-  }, [busca, local, area, fonte, soComeco, soNovas, soComSalario, ocultarCand, soCand, ordem])
+  }, [busca, local, area, fonte, ingles, soComeco, soNovas, soComSalario, ocultarCand, soCand, ordem])
 
   const mostradas = filtradas.slice(0, visiveis)
   const encerradasNaLista = soCand ? filtradas.filter((v) => v.ativa === false).length : 0
   const temFiltro = Boolean(
-    busca || local || area || fonte || soComeco || soNovas || soComSalario || ocultarCand || soCand,
+    busca || local || area || fonte || ingles || soComeco || soNovas || soComSalario || ocultarCand || soCand,
   )
   const limpar = () => {
     setBusca('')
     setLocal(null)
     setArea(null)
     setFonte(null)
+    setIngles(null)
     setSoComeco(false)
     setSoNovas(false)
     setSoComSalario(false)
@@ -504,6 +528,28 @@ export default function EstagioBoard({
               </div>
             </div>
 
+            <div className={styles.chipLine}>
+              <span className={styles.chipLabel}>Inglês</span>
+              <div className={styles.chips}>
+                <button
+                  className={!ingles ? styles.chipOn : styles.chip}
+                  onClick={() => setIngles(null)}
+                >
+                  Tanto faz
+                </button>
+                {niveis.map(([n, q]) => (
+                  <button
+                    key={n}
+                    className={ingles === n ? styles.chipOn : styles.chip}
+                    onClick={() => setIngles(ingles === n ? null : n)}
+                  >
+                    {INGLES_NOME[n] ?? n}
+                    <span className={styles.chipCount}>{q}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className={styles.rightControls}>
               <label className={styles.toggle}>
                 <input
@@ -669,6 +715,11 @@ export default function EstagioBoard({
                       {rotuloTipo(v.tipo) && (
                         <span className={styles.metaItem}>
                           <IconWork /> {rotuloTipo(v.tipo)}
+                        </span>
+                      )}
+                      {v.ingles && (
+                        <span className={styles.metaItem}>
+                          <IconFala /> {INGLES_NOME[v.ingles] ?? v.ingles}
                         </span>
                       )}
                       {fmtData(v.publicada_em) && (

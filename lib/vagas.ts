@@ -18,6 +18,19 @@ export interface Vaga {
   capturada_em: string
   // false = vaga encerrada na fonte (só aparece em "Só candidatadas")
   ativa?: boolean
+  // lidos na descrição pelo enriquecedor (só nos estágios)
+  ingles?: string | null
+  modalidade?: string | null
+}
+
+// rótulo do nível de inglês pedido na descrição da vaga
+export const INGLES_NOME: Record<string, string> = {
+  nao_pede: 'Não pede inglês',
+  basico: 'Inglês básico',
+  intermediario: 'Inglês intermediário',
+  avancado: 'Inglês avançado',
+  mencionado: 'Pede inglês, sem nível',
+  desconhecido: 'Inglês não conferido',
 }
 
 export interface Execucao {
