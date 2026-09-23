@@ -33,6 +33,8 @@ const COMECO =
 // "Greater Porto Alegre"): o filtro mostra só o nome da cidade.
 function cidadeDe(v: Vaga): string {
   const onde = `${v.cidade ?? ''} ${v.tipo ?? ''}`
+  // o LinkedIn não garante o remoto: só vira "Remoto" quando a descrição confirma
+  if (/a confirmar/i.test(v.cidade ?? '')) return 'Remoto a confirmar'
   if (/remoto|remote|home ?office/i.test(onde)) return 'Remoto'
   const nome = (v.cidade ?? '')
     .split(/[,–]|\s-\s/)[0]
@@ -281,8 +283,8 @@ export default function EstagioBoard({
   const cidades = useMemo(
     () =>
       Object.entries(contagem.l).sort((x, y) => {
-        if (x[0] === 'Remoto') return 1
-        if (y[0] === 'Remoto') return -1
+        const peso = (c: string) => (c === 'Remoto a confirmar' ? 2 : c === 'Remoto' ? 1 : 0)
+        if (peso(x[0]) !== peso(y[0])) return peso(x[0]) - peso(y[0])
         return y[1] - x[1]
       }),
     [contagem],
@@ -403,7 +405,7 @@ export default function EstagioBoard({
             </div>
             <div className={styles.stat}>
               <strong>{contagem.l.Remoto ?? 0}</strong>
-              <span>remotos</span>
+              <span>remotos confirmados</span>
             </div>
             <span className={styles.atualizado}>
               {ultima && (
