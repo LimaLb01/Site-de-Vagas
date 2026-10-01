@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: Vaga Certa - Claro e Acolhedor
+name: Achou Vaga - Claro e Acolhedor
 description: Site de vagas para todas as idades, de quem nasceu no celular a quem usa pouco a internet. Mobile primeiro, leitura fácil, uma ação principal por tela.
 colors:
   primary: "#0E5A7A"
@@ -112,7 +112,7 @@ components:
     inactiveColor: "{colors.ink-muted}"
 ---
 
-# Vaga Certa (nome provisório)
+# Achou Vaga
 
 ## Overview
 
