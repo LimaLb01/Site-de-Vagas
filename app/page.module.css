@@ -465,6 +465,18 @@
   color: var(--f-nube);
 }
 
+.f_futura {
+  color: var(--f-futura);
+}
+
+.f_adzuna {
+  color: var(--f-adzuna);
+}
+
+.f_crmv-rs {
+  color: var(--f-crmv);
+}
+
 .headTags {
   margin-left: auto;
   display: flex;

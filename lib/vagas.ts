@@ -61,6 +61,9 @@ export const FONTES: Record<string, string> = {
   indeed: 'Indeed',
   iel: 'IEL-RS',
   nube: 'Nube',
+  futura: 'Futura Estágios',
+  adzuna: 'Adzuna',
+  'crmv-rs': 'CRMV-RS',
 }
 
 async function supabaseGet<T>(path: string): Promise<T[]> {
