@@ -86,9 +86,12 @@ const MAX_LOTES = 10
 
 // painel principal: cargos de Caxias, sem os estágios de ADS (página própria)
 // e sem as vagas do antigo simulado ADS, desativado
-export const PATH_VAGAS = `vagas?select=*&ativa=eq.true&termo_busca=not.in.(ads,estagio-ads)&${ORDEM}`
-// estágios de ADS: Canoas, região metropolitana de Porto Alegre e remoto
-export const PATH_ESTAGIO = `vagas?select=*&ativa=eq.true&termo_busca=eq.estagio-ads&${ORDEM}`
+export const PATH_VAGAS = `vagas?select=*&ativa=eq.true&termo_busca=not.in.(ads,estagio-ads,estagio-vet)&${ORDEM}`
+// páginas de estágio (ADS e Veterinária): Canoas, região metropolitana e remoto.
+// O perfil vira o termo_busca gravado pelo coletor ('estagio-ads', 'estagio-vet').
+export type PerfilEstagio = 'ads' | 'vet'
+export const pathEstagio = (perfil: PerfilEstagio) =>
+  `vagas?select=*&ativa=eq.true&termo_busca=eq.estagio-${perfil}&${ORDEM}`
 
 async function supabaseGetTodas<T>(path: string): Promise<T[]> {
   const todas: T[] = []
@@ -104,8 +107,8 @@ export function getVagas() {
   return supabaseGetTodas<Vaga>(PATH_VAGAS)
 }
 
-export function getVagasEstagio() {
-  return supabaseGetTodas<Vaga>(PATH_ESTAGIO)
+export function getVagasEstagio(perfil: PerfilEstagio) {
+  return supabaseGetTodas<Vaga>(pathEstagio(perfil))
 }
 
 // A Gupy manda o regime como código (vacancy_type_effective); o card mostra o nome.
@@ -144,16 +147,16 @@ export function getUltimaExecucao() {
 export const PATH_EXECUCAO =
   'execucoes_busca?select=executada_em,novas_vagas,total_encontradas&order=executada_em.desc&limit=1'
 
-// última rodada do coletor de estágios (a página /estagio-ads mostra a hora)
-export const PATH_EXEC_ESTAGIO =
-  'execucoes_estagio?select=executada_em,encontradas,inseridas&order=executada_em.desc&limit=1'
+// última rodada do coletor de estágios daquele perfil ("Coleta de ..." na página)
+export const pathExecEstagio = (perfil: PerfilEstagio) =>
+  `execucoes_estagio?select=executada_em,encontradas,inseridas&perfil=eq.${perfil}&order=executada_em.desc&limit=1`
 
-export async function getUltimaEstagio(): Promise<Execucao | null> {
+export async function getUltimaEstagio(perfil: PerfilEstagio): Promise<Execucao | null> {
   const linhas = await supabaseGet<{
     executada_em: string
     encontradas: number
     inseridas: number
-  }>(PATH_EXEC_ESTAGIO)
+  }>(pathExecEstagio(perfil))
   const u = linhas[0]
   if (!u) return null
   return {

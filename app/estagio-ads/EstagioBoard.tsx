@@ -5,8 +5,9 @@ import Link from 'next/link'
 import {
   FONTES,
   INGLES_NOME,
-  PATH_ESTAGIO,
-  PATH_EXEC_ESTAGIO,
+  pathEstagio,
+  pathExecEstagio,
+  type PerfilEstagio,
   buscarCandidatadas,
   chaveVaga,
   fetchAoVivo,
@@ -50,7 +51,7 @@ function inglesDe(v: Vaga): string {
   return v.ingles ?? 'desconhecido'
 }
 
-function areaDe(v: Vaga): string {
+function areaAds(v: Vaga): string {
   const t = v.titulo.toLowerCase()
   if (/dados|analytics|\bbi\b|business intelligence|\bdata\b/.test(t)) return 'Dados / BI'
   if (/suporte|service desk|noc|help ?desk/.test(t)) return 'Suporte'
@@ -59,6 +60,37 @@ function areaDe(v: Vaga): string {
   if (/desenvolv|program|front|back|full ?stack|software|\bdev\b|web|mobile|android|ios\b/.test(t))
     return 'Desenvolvimento'
   return 'Sistemas / Outros'
+}
+
+function areaVet(v: Vaga): string {
+  const t = v.titulo.toLowerCase()
+  if (/cirurg/.test(t)) return 'Cirurgia'
+  if (/grandes animais|bovin|equin|su[íi]n|aves|avicult|produ[çc][ãa]o animal|rural|agro/.test(t))
+    return 'Grandes animais / Produção'
+  if (/laborat|patolog|an[áa]lises|diagn[óo]st|imagem/.test(t)) return 'Laboratório / Diagnóstico'
+  if (/inspe[çc]|sanit|vigil[âa]ncia|frigor/.test(t)) return 'Inspeção / Saúde pública'
+  if (/pet ?shop|banho|est[ée]tica/.test(t)) return 'Pet shop'
+  if (/cl[íi]nica|hospital|pequenos animais|consult/.test(t)) return 'Clínica / Hospital'
+  return 'Outros'
+}
+
+// o que muda entre as páginas de estágio; o resto do painel é o mesmo
+const PERFIS: Record<
+  PerfilEstagio,
+  { titulo: string; area: (v: Vaga) => string; rodape: string; outro: { href: string; nome: string } }
+> = {
+  ads: {
+    titulo: 'Estágio em ADS, Canoas e região',
+    area: areaAds,
+    rodape: 'Estágios de tecnologia',
+    outro: { href: '/estagio-vet', nome: 'Estágio Veterinária' },
+  },
+  vet: {
+    titulo: 'Estágio em Veterinária, Canoas e região',
+    area: areaVet,
+    rodape: 'Estágios de medicina veterinária',
+    outro: { href: '/estagio-ads', nome: 'Estágio ADS' },
+  },
 }
 
 function salarioNum(v: Vaga): number {
@@ -125,12 +157,16 @@ const IconSearch = () => (
 )
 
 export default function EstagioBoard({
+  perfil,
   vagas: vagasIniciais,
   ultima: ultimaInicial,
 }: {
+  perfil: PerfilEstagio
   vagas: Vaga[]
   ultima: Execucao | null
 }) {
+  const cfg = PERFIS[perfil]
+  const areaDe = cfg.area
   const [vagas, setVagas] = useState<Vaga[]>(vagasIniciais)
   const [ultima, setUltima] = useState<Execucao | null>(ultimaInicial)
   const [atualizando, setAtualizando] = useState(false)
@@ -176,9 +212,9 @@ export default function EstagioBoard({
     setAtualizando(true)
     try {
       const [novas, exec] = await Promise.all([
-        fetchAoVivoTodas<Vaga>(PATH_ESTAGIO),
+        fetchAoVivoTodas<Vaga>(pathEstagio(perfil)),
         fetchAoVivo<{ executada_em: string; encontradas: number; inseridas: number }>(
-          PATH_EXEC_ESTAGIO,
+          pathExecEstagio(perfil),
         ),
       ])
       if (novas) {
@@ -202,7 +238,7 @@ export default function EstagioBoard({
       buscandoRef.current = false
       setAtualizando(false)
     }
-  }, [])
+  }, [perfil])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -239,7 +275,7 @@ export default function EstagioBoard({
     }
     let cancelado = false
     buscarCandidatadas([...candidatadas]).then((r) => {
-      if (!cancelado && r) setVagasCand(r.filter((v) => v.termo_busca === 'estagio-ads'))
+      if (!cancelado && r) setVagasCand(r.filter((v) => v.termo_busca === `estagio-${perfil}`))
     })
     return () => {
       cancelado = true
@@ -378,6 +414,9 @@ export default function EstagioBoard({
           >
             Sincronizar
           </button>
+          <Link href={cfg.outro.href} className={styles.navLink}>
+            {cfg.outro.nome}
+          </Link>
           <Link href="/" className={styles.navLink}>
             Painel de Caxias
           </Link>
@@ -389,7 +428,7 @@ export default function EstagioBoard({
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <div>
-            <h1 className={styles.title}>Estágio em ADS, Canoas e região</h1>
+            <h1 className={styles.title}>{cfg.titulo}</h1>
             <p className={styles.eyebrow}>
               <IconPin /> Canoas, região metropolitana de Porto Alegre e vagas remotas
             </p>
@@ -780,7 +819,7 @@ export default function EstagioBoard({
 
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          Estágios de tecnologia em Canoas, na região metropolitana de Porto Alegre e
+          {cfg.rodape} em Canoas, na região metropolitana de Porto Alegre e
           remotos, de Gupy, LinkedIn, Vagas.com, Jobfy e Indeed. Coleta diária. Não
           afiliado às plataformas.
         </div>

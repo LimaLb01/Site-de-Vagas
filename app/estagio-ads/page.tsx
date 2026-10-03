@@ -10,6 +10,6 @@ export const metadata = {
 }
 
 export default async function EstagioAds() {
-  const [vagas, ultima] = await Promise.all([getVagasEstagio(), getUltimaEstagio()])
-  return <EstagioBoard vagas={vagas} ultima={ultima} />
+  const [vagas, ultima] = await Promise.all([getVagasEstagio('ads'), getUltimaEstagio('ads')])
+  return <EstagioBoard perfil="ads" vagas={vagas} ultima={ultima} />
 }

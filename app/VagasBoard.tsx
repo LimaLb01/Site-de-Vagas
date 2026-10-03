@@ -317,7 +317,7 @@ export default function VagasBoard({
     let cancelado = false
     buscarCandidatadas([...candidatadas]).then((r) => {
       // o histórico é compartilhado com a aba de estágios: aqui só entram as deste painel
-      if (!cancelado && r) setVagasCand(r.filter((v) => v.termo_busca !== 'estagio-ads'))
+      if (!cancelado && r) setVagasCand(r.filter((v) => !v.termo_busca?.startsWith('estagio-')))
     })
     return () => {
       cancelado = true
@@ -402,7 +402,10 @@ export default function VagasBoard({
             Sincronizar
           </button>
           <a className={styles.navLink} href="/estagio-ads">
-            Estágio ADS em Canoas
+            Estágio ADS
+          </a>
+          <a className={styles.navLink} href="/estagio-vet">
+            Estágio Veterinária
           </a>
         </div>
       </div>
