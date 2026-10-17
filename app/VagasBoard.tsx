@@ -12,7 +12,9 @@ import {
   rotuloTipo,
   type Vaga,
   type Execucao,
+  type FiltroPcd,
 } from '@/lib/vagas'
+import ChipsPcd from './ChipsPcd'
 import LogoEmpresa from './LogoEmpresa'
 import PainelSync from './PainelSync'
 import { usePrefs } from './usePrefs'
@@ -52,6 +54,7 @@ interface VagaMerged {
   capturada_em: string
   fontes: Fonte[]
   encerrada: boolean
+  pcd: boolean
 }
 
 
@@ -75,9 +78,11 @@ function mesclar(vagas: Vaga[]): VagaMerged[] {
         capturada_em: v.capturada_em,
         fontes: [{ fonte: v.fonte, url: v.url }],
         encerrada: v.ativa === false,
+        pcd: !!v.pcd,
       })
     } else {
       if (!ex.fontes.some((f) => f.fonte === v.fonte)) ex.fontes.push({ fonte: v.fonte, url: v.url })
+      if (v.pcd) ex.pcd = true
       if (!ex.salario && v.salario) ex.salario = v.salario
       if (!ex.logo_url && v.logo_url) ex.logo_url = v.logo_url
       if (!ex.tipo && v.tipo) ex.tipo = v.tipo
@@ -194,6 +199,7 @@ export default function VagasBoard({
   const [local, setLocal] = useState<'caxias' | 'remoto' | null>(null)
   const [soNovas, setSoNovas] = useState(false)
   const [soComSalario, setSoComSalario] = useState(false)
+  const [pcd, setPcd] = useState<FiltroPcd>(null)
   const [ocultarCand, setOcultarCand] = useState(false)
   const [soCand, setSoCand] = useState(false)
   const [vagasCand, setVagasCand] = useState<Vaga[]>([])
@@ -346,6 +352,8 @@ export default function VagasBoard({
       if (local === 'caxias' && ehRemota(v)) return false
       if (soNovas && !naoVista(v)) return false
       if (soComSalario && !v.salario) return false
+      if (pcd === 'so' && !v.pcd) return false
+      if (pcd === 'sem' && v.pcd) return false
       if (ocultarCand && candidatadas.has(v.key)) return false
       if (q) {
         const alvo = `${v.titulo} ${v.empresa ?? ''} ${v.cidade ?? ''}`.toLowerCase()
@@ -362,12 +370,12 @@ export default function VagasBoard({
     })
     return r
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itensComEncerradas, soCand, busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, candidatadas, vistas, ordem])
+  }, [itensComEncerradas, soCand, busca, fonte, termo, nivel, local, soNovas, soComSalario, pcd, ocultarCand, candidatadas, vistas, ordem])
 
   // reseta a paginação quando os filtros mudam
   useEffect(() => {
     setVisiveis(PAGINA)
-  }, [busca, fonte, termo, nivel, local, soNovas, soComSalario, ocultarCand, soCand, ordem])
+  }, [busca, fonte, termo, nivel, local, soNovas, soComSalario, pcd, ocultarCand, soCand, ordem])
 
   const mostradas = filtradas.slice(0, visiveis)
   const encerradasNaLista = soCand ? filtradas.filter((v) => v.encerrada).length : 0
@@ -380,11 +388,12 @@ export default function VagasBoard({
     setLocal(null)
     setSoNovas(false)
     setSoComSalario(false)
+    setPcd(null)
     setOcultarCand(false)
     setSoCand(false)
   }
   const temFiltro =
-    busca || fonte || termo || nivel || local || soNovas || soComSalario || ocultarCand || soCand
+    busca || fonte || termo || nivel || local || soNovas || soComSalario || pcd || ocultarCand || soCand
 
   return (
     <div className={styles.page}>
@@ -581,6 +590,13 @@ export default function VagasBoard({
               </div>
             )}
 
+            <ChipsPcd
+              valor={pcd}
+              mudar={setPcd}
+              exclusivas={itens.filter((v) => v.pcd).length}
+              total={itens.length}
+            />
+
             <div className={styles.rightControls}>
               <label className={styles.toggle}>
                 <input
@@ -705,6 +721,7 @@ export default function VagasBoard({
                       </span>
                       <span className={styles.headTags}>
                         {v.encerrada && <span className={styles.encerradaTag}>Encerrada</span>}
+                        {v.pcd && <span className={styles.pcdTag}>Exclusiva PcD</span>}
                         {aplicada && <span className={styles.candTag}>Candidatada</span>}
                         {nova && !aplicada && <span className={styles.nova}>Nova pra você</span>}
                       </span>

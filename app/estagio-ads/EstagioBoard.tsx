@@ -14,8 +14,10 @@ import {
   fetchAoVivoTodas,
   rotuloTipo,
   type Execucao,
+  type FiltroPcd,
   type Vaga,
 } from '@/lib/vagas'
+import ChipsPcd from '../ChipsPcd'
 import LogoEmpresa from '../LogoEmpresa'
 import PainelSync from '../PainelSync'
 import { usePrefs } from '../usePrefs'
@@ -182,6 +184,7 @@ export default function EstagioBoard({
   const [soComeco, setSoComeco] = useState(false)
   const [soNovas, setSoNovas] = useState(false)
   const [soComSalario, setSoComSalario] = useState(false)
+  const [pcd, setPcd] = useState<FiltroPcd>(null)
   const [ocultarCand, setOcultarCand] = useState(false)
   const [soCand, setSoCand] = useState(false)
   const [vagasCand, setVagasCand] = useState<Vaga[]>([])
@@ -355,6 +358,8 @@ export default function EstagioBoard({
       if (soComeco && !COMECO.test(v.titulo)) return false
       if (soNovas && !naoVista(v)) return false
       if (soComSalario && !v.salario) return false
+      if (pcd === 'so' && !v.pcd) return false
+      if (pcd === 'sem' && v.pcd) return false
       if (ocultarCand && candidatadas.has(k)) return false
       if (q && !`${v.titulo} ${v.empresa ?? ''} ${v.cidade ?? ''}`.toLowerCase().includes(q)) {
         return false
@@ -375,16 +380,16 @@ export default function EstagioBoard({
       return ordem === 'antigas' ? ta - tb : tb - ta
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lista, busca, local, area, fonte, ingles, soComeco, soNovas, soComSalario, ocultarCand, soCand, candidatadas, vistas, ordem])
+  }, [lista, busca, local, area, fonte, ingles, soComeco, soNovas, soComSalario, pcd, ocultarCand, soCand, candidatadas, vistas, ordem])
 
   useEffect(() => {
     setVisiveis(PAGINA)
-  }, [busca, local, area, fonte, ingles, soComeco, soNovas, soComSalario, ocultarCand, soCand, ordem])
+  }, [busca, local, area, fonte, ingles, soComeco, soNovas, soComSalario, pcd, ocultarCand, soCand, ordem])
 
   const mostradas = filtradas.slice(0, visiveis)
   const encerradasNaLista = soCand ? filtradas.filter((v) => v.ativa === false).length : 0
   const temFiltro = Boolean(
-    busca || local || area || fonte || ingles || soComeco || soNovas || soComSalario || ocultarCand || soCand,
+    busca || local || area || fonte || ingles || soComeco || soNovas || soComSalario || pcd || ocultarCand || soCand,
   )
   const limpar = () => {
     setBusca('')
@@ -395,6 +400,7 @@ export default function EstagioBoard({
     setSoComeco(false)
     setSoNovas(false)
     setSoComSalario(false)
+    setPcd(null)
     setOcultarCand(false)
     setSoCand(false)
   }
@@ -591,6 +597,13 @@ export default function EstagioBoard({
               </div>
             </div>
 
+            <ChipsPcd
+              valor={pcd}
+              mudar={setPcd}
+              exclusivas={vagas.filter((v) => v.pcd).length}
+              total={vagas.length}
+            />
+
             <div className={styles.rightControls}>
               <label className={styles.toggle}>
                 <input
@@ -716,6 +729,7 @@ export default function EstagioBoard({
                       </span>
                       <span className={styles.headTags}>
                         {encerrada && <span className={styles.encerradaTag}>Encerrada</span>}
+                        {v.pcd && <span className={styles.pcdTag}>Exclusiva PcD</span>}
                         {aplicada && <span className={styles.candTag}>Candidatada</span>}
                         {comeco && !aplicada && (
                           <span className={styles.nova}>Começo de curso</span>

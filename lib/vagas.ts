@@ -21,7 +21,11 @@ export interface Vaga {
   // lidos na descrição pelo enriquecedor (só nos estágios)
   ingles?: string | null
   modalidade?: string | null
+  // coluna gerada no banco a partir do título: vaga só para pessoas com deficiência
+  pcd?: boolean
 }
+
+export type FiltroPcd = 'so' | 'sem' | null
 
 // rótulo do nível de inglês pedido na descrição da vaga
 export const INGLES_NOME: Record<string, string> = {

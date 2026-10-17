@@ -497,6 +497,10 @@
   color: var(--ink-3);
 }
 
+.pcdTag {
+  color: var(--f-gupy);
+}
+
 .cardCorpo {
   flex: 1 1 100%;
   display: flex;
